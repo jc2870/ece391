@@ -1,6 +1,7 @@
 #include "tasks.h"
 #include "lib.h"
 #include "list.h"
+#include "types.h"
 #include "x86_desc.h"
 #include "mm.h"
 
@@ -11,6 +12,9 @@ extern void *user_stk1;
 extern void user2();
 extern void *user_stk2;
 extern void first_return_to_user();
+struct task_struct *task0;
+struct task_struct *task1;
+struct task_struct *task2;
 
 struct list running_tasks;
 struct list runnable_tasks;  // waiting for time slice
@@ -32,8 +36,10 @@ void __init_task(struct task_struct *task, unsigned long eip, unsigned long user
     task->cpu_state.esp0 = kernel_stack;
     task->state = TASK_RUNNABLE;
     task->parent = NULL;
-    task->mm = alloc_page();
-    panic_on(task->mm == NULL, "allocate mm failed\n");
+    task->mm.pgdir = alloc_page();
+    panic_on(!task->mm.pgdir, "alloc pgdir failed");
+    /* map to kernel space */
+    page_table_init(task->mm.pgdir);
 }
 
 void init_task(struct task_struct *task, unsigned long eip, unsigned long user_stack, unsigned long kernel_stack)
@@ -58,20 +64,22 @@ void init_task(struct task_struct *task, unsigned long eip, unsigned long user_s
 
 static struct task_struct* alloc_task()
 {
+    struct task_struct *task = NULL;
     void* p = alloc_pages(1);
     panic_on((((unsigned long)p) % STACK_SIZE !=0), "struct task_struct must stack_size aligned\n");
 
-    return p;
+    task = p;
+    return task;
 }
 
-extern char init_finish;
-int test_tasks()
+void init_test_tasks()
 {
     /* Construct a TSS entry in the GDT */
     seg_desc_t the_tss_desc = {0};
-    struct task_struct *task0 = NULL;
-    struct task_struct *task1 = NULL;
-    struct task_struct *task2 = NULL;
+    // struct task_struct *task0 = NULL;
+    // struct task_struct *task1 = NULL;
+    // struct task_struct *task2 = NULL;
+    void *p = NULL;
 
     the_tss_desc.granularity   = 0x0;
     the_tss_desc.opsize        = 0x0;
@@ -105,23 +113,42 @@ int test_tasks()
     __init_task(task0, (unsigned long)user0, (unsigned long)&user_stk0, (unsigned long)(((char*)task0) + STACK_SIZE));
     init_task(task1, (unsigned long)user1, (unsigned long)&user_stk1, (unsigned long)(((char*)task1) + STACK_SIZE));
     init_task(task2, (unsigned long)user2, (unsigned long)&user_stk2, (unsigned long)(((char*)task2) + STACK_SIZE));
+
+    strcpy(task0->comm, "user0");
+    strcpy(task1->comm, "user1");
+    strcpy(task2->comm, "user2");
+    // uadd_page_mapping((uint32_t)user0 & ~PAGE_MASK, (uint32_t)user0 & ~PAGE_MASK, task0->mm.pgdir);
+    // uadd_page_mapping((uint32_t)user1 & ~PAGE_MASK, (uint32_t)user1 & ~PAGE_MASK, task1->mm.pgdir);
+    // uadd_page_mapping((uint32_t)user2 & ~PAGE_MASK, (uint32_t)user2 & ~PAGE_MASK, task2->mm.pgdir);
+
     tss.cr3 = (unsigned long)init_pgtbl_dir;
     list_add_tail(&running_tasks, &task0->task_list);
-    init_finish = 1;
+}
+
+void test_tasks()
+{
+    // struct task_struct *task0 = list_entry(running_tasks.next, struct task_struct, task_list);
+    /* jump to user0 */
+    uint32_t cr3;
+    asm volatile ("movl %0, %%cr3"::"r"(task0->mm.pgdir));
+    asm volatile ("movl %%cr3, %0":"=r"(cr3));
+    panic_on(cr3 != (uint32_t)task0->mm.pgdir, "cr3 is %u, mm->pgdir is %u\n", cr3, (uint32_t)task0->mm.pgdir);
+    __asm__ __volatile__("": : :"memory");
+    panic_on(!task0->mm.pgdir, "unexpected task0 pgdir\n");
+    panic_on(!task1->mm.pgdir, "unexpected task1 pgdir\n");
+    panic_on(!task2->mm.pgdir, "unexpected task2 pgdir\n");
     asm volatile ("pushfl;"
-                  "andl $0xffffbfff, %esp;" // clear busy flag
+                  "andl $0xffffbfff, (%esp);" // clear busy flag
                   "popfl;"
                   "movl $user_stk0, %eax;"
                   "sti;"
                   "pushl $0x2B;"        // ss
                   "pushl %eax;"    // esp
                   "pushfl;"
-                  "pushl $0x23;"        // cs
+                  "pushl $0x23;"        // set user cs, change cpl to 3(user)
                   "pushl $user0;"        // eip 这里必须是$user0，而不能是user0.后者的话就变成了寻址，是压入user0地址处存储的数据，而前者是压入user0地址
                   "iret;"
     );
-
-    return 0;
 }
 
 

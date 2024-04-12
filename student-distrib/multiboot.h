@@ -10,9 +10,9 @@
 #define MULTIBOOT_HEADER_MAGIC          0x1BADB002
 #define MULTIBOOT_BOOTLOADER_MAGIC      0x2BADB002
 
-/* stack size is 8k */
 #define STACK_BOTTOM 0x800000
 #define STACK_TOP    0x7fe000
+#define INIT_TASK STACK_TOP
 
 #ifndef ASM
 

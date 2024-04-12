@@ -6,7 +6,7 @@
 
 .section .text
 
-.global ignore_intr,intr_num
+.global ignore_intr,intr_num, init_pgtbl_dir, ret2user, restore_user_cr3
 .global generic_intr_handler, syscall_interrupt_entry, timer_interrupt_entry, first_return_to_user
 
 # reference chapter 6.12.1 (Exception- or Interrupt-Handler Procedures) volume 3 intel manual
@@ -27,12 +27,17 @@
 
 common_intr_entry:
     # pusha instruction pushes the contents of the general-purpose registers onto stack.
+    popl errno
     pusha
     pushl %ds
     pushl %es
     pushl %fs
     pushl %gs
 
+    # push %eax
+    # movl init_pgtbl_dir, %eax
+    # movl %eax, %cr3
+    # pop %eax
     # according to https://github.com/hjl-tools/x86-psABI/wiki/intel386-psABI-1.1.pdf and
     #              https://stackoverflow.com/a/37635449/19784965
     # The direction flag DF in the %EFLAGS register must be clear (set to “forward”
@@ -40,18 +45,12 @@ common_intr_entry:
     cld
     pushl %esp
     pushl intr_num
+    pushl errno
     call generic_intr_handler
     # The above call instruction will overwrite esp regesiter, so we need restore esp using eax
     movl %eax, %esp
 
-    popl %gs
-    popl %fs
-    popl %es
-    popl %ds
-    popa
-    addl $4, %esp  # sub error code space
-
-    iret
+    jmp ret2user
 
 ENTRY(ignore_intr):
     iret
@@ -115,13 +114,7 @@ syscall_interrupt_entry:
     # The above call instruction will overwrite esp regesiter, so we need restore esp using eax
     movl %eax, %esp
 
-    popl %gs
-    popl %fs
-    popl %es
-    popl %ds
-    popa
-
-    iret
+    jmp ret2user
 
 timer_interrupt_entry:
     pusha
@@ -131,7 +124,11 @@ timer_interrupt_entry:
     pushl %gs
 
     call timer_handler
+    jmp ret2user
 
+
+ret2user:
+    call restore_user_cr3
     popl %gs
     popl %fs
     popl %es
@@ -139,6 +136,7 @@ timer_interrupt_entry:
     popa
 
     iret
+
 
 # get eip and esp from stack, eip and esp have been pushed into stack in init_task()
 first_return_to_user:
@@ -150,9 +148,11 @@ first_return_to_user:
     push $USER_CS
     pushl %ebx
     movl $0, %eax
+    call restore_user_cr3
     movl $0, %ebx
     iret
 
 
 .data
     intr_num: .long 0
+    errno   : .long 0

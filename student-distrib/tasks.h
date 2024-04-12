@@ -51,7 +51,7 @@ struct task_struct {
             struct task_struct *parent;
             struct list task_list;
             char comm[16];
-            struct mm* mm;
+            struct mm mm;
 
             struct regs cpu_state;
         };
@@ -64,7 +64,8 @@ static inline struct task_struct* current()
     return (struct task_struct*)(((unsigned long)&i) & ~(STACK_SIZE-1));
 }
 
-extern int test_tasks();
+extern void test_tasks();
+extern void init_test_tasks();
 
 extern struct list running_tasks;
 extern struct list runnable_tasks;  // waiting for time slice

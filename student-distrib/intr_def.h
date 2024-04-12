@@ -7,7 +7,7 @@
 #include "timer.h"
 
 
-typedef void (*intr_handler_t)();
+typedef void (*intr_handler_t)(unsigned long);
 
 struct intr_entry {
     intr_handler_t intr_handler;

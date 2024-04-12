@@ -33,152 +33,152 @@ static void set_system_gate(unsigned int n, void *addr)
 }
 
 /* devide error */
-static void intr0x0_handler()
+static void intr0x0_handler(unsigned long errno)
 {
     KERN_INFO("devide error occured\n");
 }
 
 /* debug exception */
-static void intr0x1_handler()
+static void intr0x1_handler(unsigned long errno)
 {
     KERN_INFO("debug exception occured\n");
 }
 
 /* none maskable interrupt */
-static void intr0x2_handler()
+static void intr0x2_handler(unsigned long errno)
 {
     KERN_INFO("nmi interrupt occured\n");
 }
 
 /* break point */
-static void intr0x3_handler()
+static void intr0x3_handler(unsigned long errno)
 {
     KERN_INFO("break point occured\n");
 }
 
 /* overflow */
-static void intr0x4_handler()
+static void intr0x4_handler(unsigned long errno)
 {
     KERN_INFO("overflow occured\n");
 }
 
 /* bound range exceeded */
-static void intr0x5_handler()
+static void intr0x5_handler(unsigned long errno)
 {
     KERN_INFO("bound range exceed occured\n");
 }
 
 /* undefined opcode */
-static void intr0x6_handler()
+static void intr0x6_handler(unsigned long errno)
 {
     KERN_INFO("undefined opcode occured\n");
 }
 
 /* device not available(no math coprocessor) */
-static void intr0x7_handler()
+static void intr0x7_handler(unsigned long errno)
 {
 
     KERN_INFO("device not available occured\n");
 }
 
 /* double fault, with error code(zero) */
-static void intr0x8_handler()
+static void intr0x8_handler(unsigned long errno)
 {
     KERN_INFO("double fault occured\n");
 }
 
 /* coprocessor segment overrun */
-static void intr0x9_handler()
+static void intr0x9_handler(unsigned long errno)
 {
     KERN_INFO("coprocessor segment overrun occured\n");
 
 }
 /* invalid tss, with error code  */
-static void intr0xA_handler()
+static void intr0xA_handler(unsigned long errno)
 {
     KERN_INFO("invalid tss occured\n");
 }
 
 /* segment not present, with error code */
-static void intr0xB_handler()
+static void intr0xB_handler(unsigned long errno)
 {
     KERN_INFO("segment not present occured\n");
 }
 
 /* stack segment fault, with error code */
-static void intr0xC_handler()
+static void intr0xC_handler(unsigned long errno)
 {
     KERN_INFO("stack segment fault occured\n");
 }
 
 /* general protection, with error code  */
-static void intr0xD_handler()
+static void intr0xD_handler(unsigned long errno)
 {
     KERN_INFO("general protection occured\n");
 }
 
 /* x87 fpu floating-point error(Math fault) */
-static void intr0x10_handler()
+static void intr0x10_handler(unsigned long errno)
 {
     KERN_INFO("fpu floating-point error occured\n");
 }
 
 /* alignment check, with error code(zero) */
-static void intr0x11_handler()
+static void intr0x11_handler(unsigned long errno)
 {
     KERN_INFO("alignment check occured\n");
 }
 
 /* machine check */
-static void intr0x12_handler()
+static void intr0x12_handler(unsigned long errno)
 {
     KERN_INFO("machine check occured\n");
 }
 
 /* SIMD floating-point exception */
-void intr0x13_handler()
+void intr0x13_handler(unsigned long errno)
 {
     KERN_INFO("SIML floating-point exception occured\n");
 }
 
 /* Virtualization Exception */
-static void intr0x14_handler()
+static void intr0x14_handler(unsigned long errno)
 {
     KERN_INFO("Virtualization Exception occured\n");
 }
 
 /*  Control Protection Exception, with error code  */
-static void intr0x15_handler()
+static void intr0x15_handler(unsigned long errno)
 {
     KERN_INFO("Control Protection Exception occured\n");
 }
 
 /* APIC_MASTER_FIRST_INTR +3 */
-static void intr0x33_handler()
+static void intr0x33_handler(unsigned long errno)
 {
     KERN_INFO("serial2 interrupt occured\n");
 }
 
 /* APIC_MASTER_FIRST_INTR +4 */
-static void intr0x34_handler()
+static void intr0x34_handler(unsigned long errno)
 {
     KERN_INFO("serial1 interrupt occured\n");
 }
 
 /* APIC_SLAVE_FIRST_INTR */
-static void intr0x38_handler()
+static void intr0x38_handler(unsigned long errno)
 {
     KERN_INFO("real time counter occured\n");
 }
 
 /* APIC_SLAVE_FIRST_INTR +5 */
-static void intr0x3D_handler()
+static void intr0x3D_handler(unsigned long errno)
 {
     KERN_INFO("math cooperation occured\n");
 }
 
 /* APIC_SLAVE_FIRST_INTR +6 */
-static void intr0x3E_handler()
+static void intr0x3E_handler(unsigned long errno)
 {
     KERN_INFO("hardisk interrput occured\n");
 }
@@ -260,10 +260,10 @@ void early_setup_idt()
     // enable_irq(PIC_MOUSE_INTR);
 }
 
-unsigned long generic_intr_handler(unsigned long intr_num, unsigned long esp)
+unsigned long generic_intr_handler(unsigned long errno, unsigned long intr_num, unsigned long esp)
 {
     if (intr_entry[intr_num].intr_handler)
-        intr_entry[intr_num].intr_handler();
+        intr_entry[intr_num].intr_handler(errno);
     else
         KERN_INFO("unsupported intr 0x%x\n", intr_num);
     send_eoi(intr_num - PIC_MASTER_FIRST_INTR);

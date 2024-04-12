@@ -193,7 +193,7 @@ int keyboard_init()
     return 0;
 }
 
-void intr0x31_handler()
+void intr0x31_handler(unsigned long errno)
 {
     u8 v = inb(0x60);
     u16 x, y;

@@ -3,6 +3,7 @@
  */
 
 #include "mouse.h"
+#include "multiboot.h"
 #include "x86_desc.h"
 #include "lib.h"
 #include "i8259.h"
@@ -17,7 +18,6 @@
 #define RUN_TESTS
 
 extern void timer_handler();
-char init_finish = 0;
 
 #define APIC_LOCAL_TIMER_ONESHOT_MODE  (0)
 #define APIC_LOCAL_TIMER_PERIODIC_MODE (1 << 17)
@@ -96,6 +96,7 @@ void entry(unsigned long magic, unsigned long addr)
     if (detect_apic() == false)
         return;
     /* Init the PIC */
+    cli();
     i8259_init();
     if (init_timer()) {
         panic("timer init failed\n");
@@ -111,16 +112,32 @@ void entry(unsigned long magic, unsigned long addr)
         panic("paging init failed\n");
         return;
     }
+
+    {
+        struct task_struct *task = (struct task_struct*)INIT_TASK;
+        strcpy(task->comm, "init");
+        task->mm.pgdir = init_pgtbl_dir;
+        task->pid = 0;
+
+        printf("------------------------------------\n");
+        printf("task->mm.pgdir is %x\n", task->mm.pgdir);
+    }
+
     if (launch_tests() == false)
         panic("test failed\n");
+
+    {
+        struct task_struct *task = (struct task_struct*)INIT_TASK;
+
+        printf("------------------------------------\n");
+        printf("task->mm.pgdir is %x\n", task->mm.pgdir);
+    }
     // Can't enable pgaing if test multi task that print 'A' and 'B' in turn, because user can't access supervisor-mode addresses
     // See add_page_mapping, we set U/S bit to 0, which means this page is a supervisor page which user can't accesse
     enable_paging();
+    init_test_tasks();
     enable_irq(PIC_TIMER_INTR);
-    if (test_tasks()) {
-        KERN_INFO("schedule init failed\n");
-        return;
-    }
+    test_tasks();
     sti();
 
     /* Enable paging */

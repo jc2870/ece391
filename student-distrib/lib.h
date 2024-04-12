@@ -179,6 +179,14 @@ do {                                    \
     );                                  \
 } while (0)
 
+#define sti_and_restore(flags)          \
+do {                                    \
+    asm volatile ("sti\n"               \
+                  "pushl %0\n"          \
+                  "popfl\n"             \
+                  ::"r"(flags):"memory", "cc");       \
+} while(0)
+
 /* Restore flags
  * Puts the value in "flags" into the EFLAGS register.  Most often used
  * after a cli_and_save_flags(flags) */

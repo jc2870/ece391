@@ -4,7 +4,9 @@
 .global user0, user_stk0, kernel_stk0
 .global user1, user_stk1, kernel_stk1
 .global user2, user_stk2, kernel_stk2
+.global init_pgtbl_dir
 
+.align 0x1000
 user0:
     mov %ss, %ax
     mov %ax, %ds
@@ -20,6 +22,7 @@ user0:
     .fill 128,4,0
 user_stk0:
 
+.align 0x1000
 user1:
     mov %ss, %ax
     mov %ax, %ds
@@ -35,6 +38,7 @@ user1:
     .fill 128,4,0
 user_stk1:
 
+.align 0x1000
 user2:
     mov %ss, %ax
     mov %ax, %ds

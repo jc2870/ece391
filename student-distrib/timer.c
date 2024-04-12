@@ -2,6 +2,7 @@
 #include "i8259.h"
 #include "intr.h"
 #include "list.h"
+#include "multiboot.h"
 #include "tasks.h"
 #include "x86_desc.h"
 
@@ -37,23 +38,17 @@ do  {   \
     );  \
 } while(0)
 
-extern char init_finish;
-
 void schedule()
 {
     struct task_struct *cur = current();
     struct task_struct *next = NULL;
     struct list *list = NULL;
-    if (!init_finish) {
+    if (list_empty(&runnable_tasks) || (uint32_t)cur == INIT_TASK) {
         return;
     }
 
     cli();
-    if (!list_empty(&runnable_tasks)) {
-        next = list_entry(runnable_tasks.next, struct task_struct, task_list);
-    } else {
-        next = cur;
-    }
+    next = list_entry(runnable_tasks.next, struct task_struct, task_list);
 
     list_del(&cur->task_list);
     list_add_tail(&runnable_tasks, &cur->task_list);
@@ -64,6 +59,10 @@ void schedule()
 
     update_tss(next);
     switch_to(cur, next);
+    /* 
+     * Stack has changed, cur & next also changed, so we can't use cur/next any more
+     * asm volatile ("movl %0, %%cr3;" : :"r"(next->mm.pgdir)); 
+     */
 }
 
 void __switch_to()

@@ -28,7 +28,7 @@ int mouse_init()
 }
 
 /* mouse interrupt handler */
-void intr0x3C_handler()
+void intr0x3C_handler(unsigned long errno)
 {
     u8 status = inb(CMD_PORT);
     if (!(status & 0x20))
