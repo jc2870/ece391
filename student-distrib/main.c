@@ -119,21 +119,12 @@ void entry(unsigned long magic, unsigned long addr)
         task->mm.pgdir = init_pgtbl_dir;
         task->pid = 0;
 
-        printf("------------------------------------\n");
-        printf("task->mm.pgdir is %x\n", task->mm.pgdir);
+        task->cpu_state.esp0 = STACK_BOTTOM;
     }
 
     if (launch_tests() == false)
         panic("test failed\n");
 
-    {
-        struct task_struct *task = (struct task_struct*)INIT_TASK;
-
-        printf("------------------------------------\n");
-        printf("task->mm.pgdir is %x\n", task->mm.pgdir);
-    }
-    // Can't enable pgaing if test multi task that print 'A' and 'B' in turn, because user can't access supervisor-mode addresses
-    // See add_page_mapping, we set U/S bit to 0, which means this page is a supervisor page which user can't accesse
     enable_paging();
     init_test_tasks();
     enable_irq(PIC_TIMER_INTR);

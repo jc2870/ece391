@@ -63,7 +63,7 @@ static inline struct list* get_free_pages_head(char order)
 
 void flush_tlb()
 {
-    restore_user_cr3();
+    restore_cr3();
 }
 
 /* @NOTE: caller must hold mm lock */
@@ -664,14 +664,11 @@ void liballoc_free(void *addr, size_t order)
     // free_pages(addr, order);
 }
 
-void restore_user_cr3()
+void restore_cr3()
 {
     extern int intr_num;
     struct task_struct *cur = current();
     pgd_t *pgd = cur->mm.pgdir ? cur->mm.pgdir : init_pgtbl_dir;
-    /* If it's init task, no need to change cr3 to prevent from damaging user space cr3 */
-    if ((uint32_t)cur == INIT_TASK) 
-        return;
 
     panic_on(!pgd, "unexpected pgdir intr is 0x%x\n", (int)intr_num);
     asm volatile ("movl %0, %%cr3" ::"r"(pgd));

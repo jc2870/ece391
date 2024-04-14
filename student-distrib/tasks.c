@@ -1,6 +1,7 @@
 #include "tasks.h"
 #include "lib.h"
 #include "list.h"
+#include "timer.h"
 #include "types.h"
 #include "x86_desc.h"
 #include "mm.h"
@@ -110,7 +111,7 @@ void init_test_tasks()
     tss.ss0 = KERNEL_DS;
     tss.cs = KERNEL_CS;
     ltr(KERNEL_TSS);
-    __init_task(task0, (unsigned long)user0, (unsigned long)&user_stk0, (unsigned long)(((char*)task0) + STACK_SIZE));
+    init_task(task0, (unsigned long)user0, (unsigned long)&user_stk0, (unsigned long)(((char*)task0) + STACK_SIZE));
     init_task(task1, (unsigned long)user1, (unsigned long)&user_stk1, (unsigned long)(((char*)task1) + STACK_SIZE));
     init_task(task2, (unsigned long)user2, (unsigned long)&user_stk2, (unsigned long)(((char*)task2) + STACK_SIZE));
 
@@ -122,33 +123,17 @@ void init_test_tasks()
     // uadd_page_mapping((uint32_t)user2 & ~PAGE_MASK, (uint32_t)user2 & ~PAGE_MASK, task2->mm.pgdir);
 
     tss.cr3 = (unsigned long)init_pgtbl_dir;
-    list_add_tail(&running_tasks, &task0->task_list);
+    // list_add_tail(&running_tasks, &task0->task_list);
 }
 
 void test_tasks()
 {
-    // struct task_struct *task0 = list_entry(running_tasks.next, struct task_struct, task_list);
-    /* jump to user0 */
-    uint32_t cr3;
-    asm volatile ("movl %0, %%cr3"::"r"(task0->mm.pgdir));
-    asm volatile ("movl %%cr3, %0":"=r"(cr3));
-    panic_on(cr3 != (uint32_t)task0->mm.pgdir, "cr3 is %u, mm->pgdir is %u\n", cr3, (uint32_t)task0->mm.pgdir);
-    __asm__ __volatile__("": : :"memory");
     panic_on(!task0->mm.pgdir, "unexpected task0 pgdir\n");
     panic_on(!task1->mm.pgdir, "unexpected task1 pgdir\n");
     panic_on(!task2->mm.pgdir, "unexpected task2 pgdir\n");
-    asm volatile ("pushfl;"
-                  "andl $0xffffbfff, (%esp);" // clear busy flag
-                  "popfl;"
-                  "movl $user_stk0, %eax;"
-                  "sti;"
-                  "pushl $0x2B;"        // ss
-                  "pushl %eax;"    // esp
-                  "pushfl;"
-                  "pushl $0x23;"        // set user cs, change cpl to 3(user)
-                  "pushl $user0;"        // eip 这里必须是$user0，而不能是user0.后者的话就变成了寻址，是压入user0地址处存储的数据，而前者是压入user0地址
-                  "iret;"
-    );
+
+    sti();
+    while (1);
 }
 
 

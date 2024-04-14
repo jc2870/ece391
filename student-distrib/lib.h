@@ -213,6 +213,11 @@ static inline void cpuid(uint32_t op, uint32_t regs[4])
 	    : "memory");
 }
 
+static inline void barrier()
+{
+    __asm__ __volatile__("": : :"memory");
+}
+
 /*
  * Wait a very small amount of time (1 to 4 microseconds, generally).
  * Useful for implementing a small delay for PIC remapping on old hardware or generally as a simple but imprecise wait.

@@ -43,7 +43,7 @@ void schedule()
     struct task_struct *cur = current();
     struct task_struct *next = NULL;
     struct list *list = NULL;
-    if (list_empty(&runnable_tasks) || (uint32_t)cur == INIT_TASK) {
+    if (list_empty(&runnable_tasks)) {
         return;
     }
 

@@ -50,5 +50,5 @@ extern int uadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd
 
 extern int page_table_init(pgd_t *pgd);
 
-extern void restore_user_cr3();
+extern void restore_cr3();
 #endif
