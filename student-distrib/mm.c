@@ -63,7 +63,7 @@ static inline struct list* get_free_pages_head(char order)
 
 void flush_tlb()
 {
-    restore_cr3();
+    asm volatile ("movl %0, %%cr3"::"r"(current()->mm.pgdir));
 }
 
 /* @NOTE: caller must hold mm lock */
@@ -661,15 +661,5 @@ void* liballoc_alloc(size_t order)
 
 void liballoc_free(void *addr, size_t order)
 {
-    // free_pages(addr, order);
-}
-
-void restore_cr3()
-{
-    extern int intr_num;
-    struct task_struct *cur = current();
-    pgd_t *pgd = cur->mm.pgdir ? cur->mm.pgdir : init_pgtbl_dir;
-
-    panic_on(!pgd, "unexpected pgdir intr is 0x%x\n", (int)intr_num);
-    asm volatile ("movl %0, %%cr3" ::"r"(pgd));
+    free_pages(addr, order);
 }

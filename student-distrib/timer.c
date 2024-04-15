@@ -17,6 +17,7 @@ do  {   \
          "pushl %%es;"       \
          "pushl %%fs;"       \
          "pushl %%gs;"       \
+         "movl %4, %%cr3;"   \
          "sti;"              \
          "movl %%esp, %0;" /* save esp */     \
          "movl %2, %%esp;" /* restore esp */  \
@@ -34,7 +35,7 @@ do  {   \
          "popl %%ds;"        \
          "popa;"            \
         :"=m"(cur->cpu_state.esp0), "=m"(cur->cpu_state.eip)     \
-        :"m"((new)->cpu_state.esp0), "m"((new)->cpu_state.eip) \
+        :"m"((new)->cpu_state.esp0), "m"((new)->cpu_state.eip), "r"((new)->mm.pgdir) \
     );  \
 } while(0)
 
@@ -59,9 +60,9 @@ void schedule()
 
     update_tss(next);
     switch_to(cur, next);
-    /* 
+    /*
      * Stack has changed, cur & next also changed, so we can't use cur/next any more
-     * asm volatile ("movl %0, %%cr3;" : :"r"(next->mm.pgdir)); 
+     * asm volatile ("movl %0, %%cr3;" : :"r"(next->mm.pgdir));
      */
 }
 

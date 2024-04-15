@@ -6,7 +6,7 @@
 
 .section .text
 
-.global ignore_intr,intr_num, init_pgtbl_dir, ret2user, restore_cr3
+.global ignore_intr,intr_num, init_pgtbl_dir, common_iret
 .global generic_intr_handler, syscall_interrupt_entry, timer_interrupt_entry, first_return_to_user
 
 # reference chapter 6.12.1 (Exception- or Interrupt-Handler Procedures) volume 3 intel manual
@@ -50,7 +50,7 @@ common_intr_entry:
     # The above call instruction will overwrite esp regesiter, so we need restore esp using eax
     movl %eax, %esp
 
-    jmp ret2user
+    jmp common_iret
 
 ENTRY(ignore_intr):
     iret
@@ -114,7 +114,7 @@ syscall_interrupt_entry:
     # The above call instruction will overwrite esp regesiter, so we need restore esp using eax
     movl %eax, %esp
 
-    jmp ret2user
+    jmp common_iret
 
 timer_interrupt_entry:
     pusha
@@ -124,11 +124,10 @@ timer_interrupt_entry:
     pushl %gs
 
     call timer_handler
-    jmp ret2user
+    jmp common_iret
 
 
-ret2user:
-    call restore_cr3
+common_iret:
     popl %gs
     popl %fs
     popl %es
@@ -148,7 +147,6 @@ first_return_to_user:
     push $USER_CS
     pushl %ebx
     movl $0, %eax
-    call restore_cr3
     movl $0, %ebx
     iret
 
