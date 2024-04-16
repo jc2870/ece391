@@ -14,6 +14,7 @@
 #include "keyboard.h"
 #include "mm.h"
 #include "tasks.h"
+#include "fs.h"
 
 #define RUN_TESTS
 
@@ -66,6 +67,7 @@ static void self_test()
 
 void entry(unsigned long magic, unsigned long addr)
 {
+    struct fs_mod *fs = NULL;
     console_init();
     /*
      * Check if MAGIC is valid and print the Multiboot information structure
@@ -126,9 +128,27 @@ void entry(unsigned long magic, unsigned long addr)
         panic("test failed\n");
 
     enable_paging();
-    init_test_tasks();
+    init_tasks();
     enable_irq(PIC_TIMER_INTR);
+#ifdef TEST_TASKS
+    init_test_tasks();
     test_tasks();
+#endif
+    init_fs((void*)addr);
+    display_file_name();
+#define TEST_FS
+#ifdef TEST_FS
+    {
+        char *data = alloc_page();
+
+        clear();
+        read_data_by_name((const u8*)"frame0.txt", 0, data, BLOCK_SIZE);
+        printf("%s\n", data);
+        // read_data_by_name((const u8*)"frame1.txt", 0, data, BLOCK_SIZE);
+        // printf("%s\n", data);
+    }
+#endif
+
     sti();
 
     /* Enable paging */

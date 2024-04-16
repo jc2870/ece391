@@ -28,22 +28,6 @@ void multiboot_info(unsigned long magic, unsigned long addr)
     if (CHECK_FLAG(mbi->flags, 2))
         KERN_INFO("cmdline = %s\n", (char *)mbi->cmdline);
 
-    if (CHECK_FLAG(mbi->flags, 3)) {
-        int mod_count = 0;
-        int i;
-        module_t* mod = (module_t*)mbi->mods_addr;
-        while (mod_count < mbi->mods_count) {
-            KERN_INFO("Module %d:%s loaded at address: 0x%#x\n", mod_count, (char*)mod->string, (unsigned int)mod->mod_start);
-            KERN_INFO("Module %d:%s ends at address: 0x%#x\n", mod_count, (char*)mod->string, (unsigned int)mod->mod_end);
-            KERN_INFO("First few bytes of module:\n");
-            for (i = 0; i < 16; i++) {
-                KERN_INFO("0x%x ", *((char*)(mod->mod_start+i)));
-            }
-            KERN_INFO("\n");
-            mod_count++;
-            mod++;
-        }
-    }
     /* Bits 4 and 5 are mutually exclusive! */
     if (CHECK_FLAG(mbi->flags, 4) && CHECK_FLAG(mbi->flags, 5)) {
         KERN_INFO("WARNING: Both bits 4 and 5 are set.\n");
@@ -80,7 +64,8 @@ void multiboot_info(unsigned long magic, unsigned long addr)
         for (drive = (struct drive_struct*)mbi->drive_addr;
              (uint32_t)drive < mbi->drive_addr + mbi->drive_length;
              drive = (struct drive_struct*)((uint32_t)drive + drive->size)) {
-
+                printf("mode is %d, cylinders is %d, heads is %d, sectors is %d\n",
+                    drive->drive_mode, drive->drive_cylinders, drive->drive_heads, drive->drive_sectors);
              }
     }
     if (CHECK_FLAG(mbi->flags, 9)) {

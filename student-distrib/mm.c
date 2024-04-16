@@ -621,6 +621,7 @@ void page_fault_handler(unsigned long addr, unsigned long errno)
     bool from_user = errno & (1 << 2);
 
     KERN_INFO("page fault occured addr: 0x%x\n", addr);
+    panic_on(!addr, "null ptr referenced occured");
     if (!from_user) {
         kadd_page_mapping(addr, addr, init_pgtbl_dir);
     } else {

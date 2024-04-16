@@ -66,6 +66,7 @@ static inline struct task_struct* current()
 
 extern void test_tasks();
 extern void init_test_tasks();
+extern void init_tasks();
 
 extern struct list running_tasks;
 extern struct list runnable_tasks;  // waiting for time slice

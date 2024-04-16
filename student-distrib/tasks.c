@@ -73,6 +73,13 @@ static struct task_struct* alloc_task()
     return task;
 }
 
+void init_tasks()
+{
+    INIT_LIST(&runnable_tasks);
+    INIT_LIST(&waiting_tasks);
+    INIT_LIST(&running_tasks);
+}
+
 void init_test_tasks()
 {
     /* Construct a TSS entry in the GDT */
@@ -95,10 +102,6 @@ void init_test_tasks()
 
     SET_TSS_PARAMS(the_tss_desc, &tss, tss_size);
     tss_desc_ptr = the_tss_desc;
-
-    INIT_LIST(&runnable_tasks);
-    INIT_LIST(&waiting_tasks);
-    INIT_LIST(&running_tasks);
 
     task0 = alloc_task();
     task1 = alloc_task();
@@ -133,7 +136,6 @@ void test_tasks()
     panic_on(!task2->mm.pgdir, "unexpected task2 pgdir\n");
 
     sti();
-    while (1);
 }
 
 
