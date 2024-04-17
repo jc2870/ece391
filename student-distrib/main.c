@@ -15,6 +15,7 @@
 #include "mm.h"
 #include "tasks.h"
 #include "fs.h"
+#include "hd.h"
 
 #define RUN_TESTS
 
@@ -149,6 +150,9 @@ void entry(unsigned long magic, unsigned long addr)
     }
     clear();
 #endif
+
+    enable_irq(PIC_HARDISK_INTR);
+    ideinit();
 
     sti();
 
