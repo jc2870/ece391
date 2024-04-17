@@ -144,8 +144,8 @@ void entry(unsigned long magic, unsigned long addr)
         clear();
         read_data_by_name((const u8*)"frame0.txt", 0, data, BLOCK_SIZE);
         printf("%s\n", data);
-        // read_data_by_name((const u8*)"frame1.txt", 0, data, BLOCK_SIZE);
-        // printf("%s\n", data);
+        read_data_by_name((const u8*)"frame1.txt", 0, data, BLOCK_SIZE);
+        printf("%s\n", data);
     }
 #endif
 

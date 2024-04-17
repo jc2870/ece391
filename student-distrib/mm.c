@@ -386,8 +386,10 @@ static unsigned long __init_free_pages_list(unsigned long addr)
         if (!pages_is_free(bd_addr , order) || order == _MAX_ORDER) {
             break;
         }
-        if (addr != bd_addr && ((struct list*)bd_addr)->next) {
+        // if (addr != bd_addr && ((struct list*)bd_addr)->next) {
+        if (addr != bd_addr && phy_mm_stcutre.nr_free_pages[order] != 0) {
             list_del((struct list*)bd_addr);
+            panic_on(phy_mm_stcutre.nr_free_pages[order] == 0, "-1 overflow");
             phy_mm_stcutre.nr_free_pages[order]--;
         }
         addr = addr < bd_addr ? addr : bd_addr;
@@ -620,7 +622,7 @@ void page_fault_handler(unsigned long addr, unsigned long errno)
     bool op_write = errno & (1 << 1);
     bool from_user = errno & (1 << 2);
 
-    KERN_INFO("page fault occured addr: 0x%x\n", addr);
+    // KERN_INFO("page fault occured addr: 0x%x\n", addr);
     panic_on(!addr, "null ptr referenced occured");
     if (!from_user) {
         kadd_page_mapping(addr, addr, init_pgtbl_dir);
