@@ -28,14 +28,24 @@
 #define DO_DELETE 0x93
 #define DO_PGUP   0x95
 #define DO_PGDN   0x96
-#define DO_UARROW 0xAA
-#define DO_DARROW 0xAB
-#define DO_RARROW 0xAC
-#define DO_LARROW 0xAD
+#define SCAN_UARROW     0xA0
+#define RELEASE_UARROW  0xA1
+#define SCAN_DARROW     0xA2
+#define RELEASE_DARROW  0xA3
+#define SCAN_RARROW     0xA4
+#define RELEASE_RARROW  0xA5
+#define SCAN_LARROW     0xA6
+#define RELEASE_LARROW  0xA7
 #define DO_HOME   0xB0
 #define DO_END    0xB1
-#define DO_LSHFT  0xB2
-#define DO_RSHFT  0xB3
+#define SCAN_LSHFT      0xB2
+#define RELEASE_LSHFT   0xB3
+#define SCAN_RSHFT      0xB4
+#define RELEASE_RSHFT   0xB5
+#define SCAN_CTRL       0xB6
+#define RELEASE_CTRL    0xB7
+#define SCAN_ALT        0xB8
+#define RELEASE_ALT     0xB9
 
 static unsigned char scancode_map[256] = {
     // left column is the pressed code, right column is the released code
@@ -90,7 +100,7 @@ static unsigned char scancode_map[256] = {
     [0x34]='.',[0xB4]='>',
     [0x35]='/',[0xB5]='?',
     [0x0E]='\b',[0x8E]='\b', // function key
-    [0x2A]=DO_LSHFT,[0xAA]=DO_LSHFT,
+    [0x2A]=SCAN_LSHFT,[0xAA]=RELEASE_LSHFT,
     [0x5B]=DO_GUI,[0xDB]=DO_GUI,
     [0x5C]=DO_GUI,[0xDC]=DO_GUI,
     [0x5D]=DO_APPS,[0xDD]=DO_APPS,
@@ -113,10 +123,12 @@ static unsigned char scancode_map[256] = {
     [0x53]=DO_DELETE,[0xD3]=DO_DELETE,
     [0x4F]=DO_END,[0xCF]=DO_END,
     [0x51]=DO_PGDN,[0xD1]=DO_PGDN,
-    [0x48]=DO_UARROW,[0xC8]=DO_UARROW,
-    [0x4B]=DO_LARROW,[0xCB]=DO_LARROW,
-    [0x50]=DO_DARROW,[0xD0]=DO_DARROW,
-    [0x4D]=DO_RARROW,[0xCD]=DO_RARROW
+    [0x48]=SCAN_UARROW,[0xC8]=RELEASE_UARROW,
+    [0x4B]=SCAN_LARROW,[0xCB]=RELEASE_LARROW,
+    [0x50]=SCAN_DARROW,[0xD0]=RELEASE_DARROW,
+    [0x4D]=SCAN_RARROW,[0xCD]=RELEASE_RARROW,
+    [0x1D]=SCAN_CTRL ,[0x9D]=RELEASE_CTRL,
+    [0x38]=SCAN_ALT ,[0xB8]=RELEASE_ALT,
 };
 
 int keyboard_init()
@@ -198,22 +210,50 @@ void intr0x31_handler(unsigned long errno)
     u8 v = inb(0x60);
     u16 x, y;
     static bool with_shift = false;
+    static bool with_ctrl = false;
+    static bool with_alt = false;
 
     get_cursor(&x, &y);
-    if (scancode_map[v] == DO_LSHFT || scancode_map[v] == DO_RSHFT) {
-        with_shift = !with_shift;
+    if (scancode_map[v] == SCAN_LSHFT) {
+        with_shift = true;
+        return;
+    } else if (scancode_map[v] == RELEASE_LSHFT) {
+        with_shift = false;
         return;
     }
+
+    if (scancode_map[v] == SCAN_CTRL) {
+        with_ctrl = true;
+        return;
+    } else if (scancode_map[v] == RELEASE_CTRL) {
+        with_ctrl = false;
+        return;
+    }
+
+    if (scancode_map[v] == SCAN_ALT) {
+        with_alt = true;
+        return;
+    } else if (scancode_map[v] == RELEASE_ALT) {
+        with_alt = false;
+        return;
+    }
+
+    // printf("0x%x\n", v);
 
     if (v == 0x45) { return; /* ignore */ }      /* number lock pressed */
     else if (v == 0x3A) { return; /* ignore */ } /* caps lock pressed */
     else if (v == 0x46) { return; /* ignore */ } /* scroll lock pressed */
 
     /* Handle cursor */
-    if (scancode_map[v] == DO_UARROW)      { set_cursor(x, y-1); return; }
-    else if (scancode_map[v] == DO_DARROW) { set_cursor(x, y+1); return; }
-    else if (scancode_map[v] == DO_LARROW) { set_cursor(x-1, y); return; }
-    else if (scancode_map[v] == DO_RARROW) { set_cursor(x+1, y); return; }
+    if (scancode_map[v] == SCAN_UARROW)      { set_cursor(x, y-1); return; }
+    else if (scancode_map[v] == SCAN_DARROW) { set_cursor(x, y+1); return; }
+    else if (scancode_map[v] == SCAN_LARROW) { set_cursor(x-1, y); return; }
+    else if (scancode_map[v] == SCAN_RARROW) { set_cursor(x+1, y); return; }
+
+    if (!with_shift && with_ctrl && scancode_map[v] == 'l') {
+        clear();
+        return;
+    }
 
     /* Just ignore released code */
     if (v < 0x80) {

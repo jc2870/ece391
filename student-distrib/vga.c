@@ -46,23 +46,25 @@ void get_cursor(u16 *x, u16 *y)
     *y = cursor / NUM_COLS;
 }
 
-void set_cursor(u16 x, u16 y)
+void set_cursor(s16 x, s16 y)
 {
     u16 crtc = crtc_addr();
     u16 cursor;
     if (x < 0)
-        x = 0;
-    if (x >= NUM_COLS)
         x = NUM_COLS-1;
+    if (x >= NUM_COLS)
+        x = 0;
     if (y < 0)
-        y = 0;
-    if (y >= NUM_ROWS)
         y = NUM_ROWS-1;
+    if (y >= NUM_ROWS)
+        y = 0;
 
     cursor = NUM_COLS * y + x;
 
     out_idx(cursor >> 8, crtc, CURSOR_LOCATION_IDX_H);
     out_idx(cursor, crtc, CURSOR_LOCATION_IDX_L);
+
+    set_screen(x, y);
 }
 
 void set_cursor_blink()

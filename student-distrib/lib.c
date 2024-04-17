@@ -22,6 +22,22 @@ void clear(void) {
     }
     reset_console();
     screen_x = screen_y = 0;
+    set_cursor(0, 0);
+}
+
+void set_screen(int x, int y)
+{
+    if (x < 0) {
+        screen_x = 0;
+    } else {
+        screen_x = x;
+    }
+
+    if (y < 0) {
+        screen_y = 0;
+    } else {
+        screen_y = y;
+    }
 }
 
 /* Standard KERN_INFO().
@@ -371,6 +387,8 @@ void putc(uint8_t c) {
         if (screen_x == 0)
             screen_y = (screen_y+1)%NUM_ROWS;
     }
+
+    set_cursor(screen_x, screen_y);
 }
 
 /* int8_t* itoa(uint32_t value, int8_t* buf, int32_t radix);

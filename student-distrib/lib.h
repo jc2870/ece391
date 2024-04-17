@@ -20,6 +20,7 @@ int8_t itollu(uint64_t value, int8_t* buf, int32_t radix);
 int8_t *strrev(int8_t* s);
 uint32_t strlen(const int8_t* s);
 void clear(void);
+extern void set_screen(int x, int y);
 
 
 int set_bits(int num, int n, int m);
