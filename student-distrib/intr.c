@@ -266,7 +266,8 @@ unsigned long generic_intr_handler(unsigned long errno, unsigned long intr_num, 
         intr_entry[intr_num].intr_handler(errno);
     else
         KERN_INFO("unsupported intr 0x%x\n", intr_num);
-    send_eoi(intr_num - PIC_MASTER_FIRST_INTR);
+    if (intr_num >= PIC_MASTER_FIRST_INTR)
+        send_eoi(intr_num);
 
     return esp;
 }

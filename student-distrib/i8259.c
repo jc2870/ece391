@@ -70,19 +70,20 @@ void i8259_init(void)
 }
 
 /* Disable (mask) the specified IRQ */
-void disable_irq(uint32_t irq_num) {
+void disable_irq(uint32_t irq) {
     uint16_t port;
     uint8_t value;
 
-    if (irq_num & 8) {
+    irq -= PIC_MASTER_FIRST_INTR;
+    if (irq & 8) {
         // slave
         port = PIC_SLAVE;
-        irq_num -= 8;
+        irq -= 8;
     } else {
         // master
         port = PIC_MASTER;
     }
-    value = inb(port) | (1 << irq_num);
+    value = inb(port) | (1 << irq);
     outb(value, port);
 }
 
@@ -91,11 +92,7 @@ void enable_irq(uint32_t irq_num) {
     uint16_t port;
     uint32_t value;
 
-    if (irq_num >= PIC_SLAVE_FIRST_INTR) {
-        irq_num -= PIC_SLAVE_FIRST_INTR;
-    } else {
-        irq_num -= PIC_MASTER_FIRST_INTR;
-    }
+    irq_num -= PIC_MASTER_FIRST_INTR;
 
     if (irq_num & 8) {
         // slave
@@ -112,6 +109,8 @@ void enable_irq(uint32_t irq_num) {
 
 /* Send end-of-interrupt signal for the specified IRQ */
 void send_eoi(uint32_t irq_num) {
+    panic_on(irq_num < PIC_MASTER_FIRST_INTR || irq_num > PIC_SLAVE_FIRST_INTR + 8, "error irq num %u\n", irq_num);
+    irq_num -= PIC_MASTER_FIRST_INTR;
     if (irq_num & 8) {
         outb(0x20, PIC_SLAVE_CMD);
     } else {
