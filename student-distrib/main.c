@@ -153,6 +153,8 @@ void entry(unsigned long magic, unsigned long addr)
 
     enable_irq(PIC_HARDISK_INTR);
     ideinit();
+    test_read();
+    test_write();
 
     sti();
 

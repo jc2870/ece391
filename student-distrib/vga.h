@@ -15,8 +15,7 @@ void reset_console();
 
 #define VIDEO_MEM       0xB8000
 #define VIDEO_MEM_END   0xC0000
-#define NUM_COLS    80
-#define NUM_ROWS    25
+#define MEM_PER_CONSOLE 0x1000
 #define ATTRIB      0x7
 
 #endif
