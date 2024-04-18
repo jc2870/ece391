@@ -7,11 +7,11 @@
 
 #define PIC_TIMER_INTR    0x30
 #define PIC_KEYBOARD_INTR 0x31
-#define PIC_HARDISK_INTR  0x35
 #define PIC_SOFTDISK_INTR 0x36
 #define PIC_PRINTER_INTR  0x37
 #define PIC_RTC_INTR      0x38
 #define PIC_MOUSE_INTR    0x3C
+#define PIC_HARDISK_INTR  0x3E
 
 #define SYSCALL_INTR 0x80
 
