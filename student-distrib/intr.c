@@ -177,12 +177,6 @@ static void intr0x3D_handler(unsigned long errno)
     KERN_INFO("math cooperation occured\n");
 }
 
-/* APIC_SLAVE_FIRST_INTR +6 */
-static void intr0x3E_handler(unsigned long errno)
-{
-    KERN_INFO("hardisk interrput occured\n");
-}
-
 void setup_intr_handler()
 {
     memset(&intr_entry, 0, sizeof(intr_entry));
@@ -211,6 +205,7 @@ void setup_intr_handler()
     SET_STATIC_INTR_HANDLER(0x15);
     SET_EXTERN_INTR_HANDLER(0x31);
     SET_EXTERN_INTR_HANDLER(0x3C);
+    SET_EXTERN_INTR_HANDLER(0x3E);
 }
 
 void early_setup_idt()
@@ -248,6 +243,7 @@ void early_setup_idt()
 
     set_system_gate(SYSCALL_INTR, syscall_interrupt_entry);
     set_intr_gate(PIC_TIMER_INTR, timer_interrupt_entry);
+    set_intr_gate(PIC_HARDISK_INTR, intr0x3E_entry);
 
     set_intr_gate(PIC_KEYBOARD_INTR, intr0x31_entry);
     set_intr_gate(PIC_MOUSE_INTR, intr0x3C_entry);

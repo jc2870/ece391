@@ -93,7 +93,7 @@ void ideinit()
     SET_CUR_DISK(0);
 }
 
-void test_read()
+void test_hd_read()
 {
     data_buf = alloc_page();
     panic_on(!data_buf, "alloc buf failed\n");
@@ -109,7 +109,7 @@ void test_read()
 
     insl(REG_DATA, data_buf, 512/4);
 }
-void test_write()
+void test_hd_write()
 {
     panic_on(!havedisk1, "disk1 doesn't exist\n");
     SET_CUR_DISK(1);
@@ -125,3 +125,12 @@ void test_write()
     idewait(0);
 }
 
+void hd_intr_handler()
+{
+    printf("hard disk interruption\n");
+}
+
+void intr0x3E_handler(int errno)
+{
+    return hd_intr_handler();
+}

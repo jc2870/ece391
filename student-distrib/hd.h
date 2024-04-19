@@ -2,8 +2,8 @@
 #define _HD_H
 
 extern void ideinit();
-extern void test_read();
-extern void test_write();
+extern void test_hd_read();
+extern void test_hd_write();
 
 static inline void
 insl(int port, void *addr, int cnt)

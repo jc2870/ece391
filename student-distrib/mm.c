@@ -549,6 +549,7 @@ void* alloc_pages(char order)
         phy_mm_stcutre.all_free_pages -= (1 << order);
 
         panic_on(((unsigned long)head & PAGE_MASK), "invalid page address 0x%x\n", head);
+        sti_and_restore(flags);
         return head;
     }
     sti_and_restore(flags);
