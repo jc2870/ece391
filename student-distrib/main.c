@@ -15,7 +15,7 @@
 #include "mm.h"
 #include "tasks.h"
 #include "fs.h"
-#include "hd.h"
+#include "block/hd.h"
 
 #define RUN_TESTS
 
@@ -156,6 +156,7 @@ void entry(unsigned long magic, unsigned long addr)
     ideinit();
     test_hd_read();
     test_hd_write();
+    test_hd_read();
 
     /* Enable paging */
     while (1) ;
