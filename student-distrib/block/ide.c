@@ -1,6 +1,7 @@
 #include "../lib.h"
 #include "ide.h"
 #include "../mm.h"
+#include "hd.h"
 
 char *data_buf = NULL;
 static int havedisk1 = 0;
@@ -54,10 +55,10 @@ static int havedisk1 = 0;
 #define GET_CUR_DISK() (!!(inb(REG_DRIVE) & (1 << 4)))
 
 #define SET_CUR_DISK(n) do {              \
-  int _v = inb(REG_DRIVE);                \
-  panic_on(n!=0 && n!=1, "error value;"); \
-  _v = (n == 0 ? (_v & ~(1<<4)) : (_v | (1 << 4)));  \
-  outb(_v, REG_DRIVE);                    \
+    int _v = inb(REG_DRIVE);                \
+    panic_on(n!=0 && n!=1, "error value;"); \
+    _v = (n == 0 ? (_v & ~(1<<4)) : (_v | (1 << 4)));  \
+    outb(_v, REG_DRIVE);                    \
 } while(0);
 
 /*
@@ -65,16 +66,16 @@ static int havedisk1 = 0;
  * LBA = (CylinderNumber * HeadCount + HeadNumber) *  SectorCount + SectorNumber - 1
  */
 #define SET_LBA_MODE() do {              \
-  int _v = inb(REG_DRIVE);             \
-  _v = _v | (1 << 6);                  \
-  outb(_v, REG_DRIVE);                 \
+    int _v = inb(REG_DRIVE);             \
+    _v = _v | (1 << 6);                  \
+    outb(_v, REG_DRIVE);                 \
 } while(0);
 
 /* set cylinder head sector addressing mode */
 #define SET_CHS_MODE() do {              \
-  int _v = inb(REG_DRIVE);             \
-  _v = _v & ~(1 << 6);                  \
-  outb(_v, REG_DRIVE);                 \
+    int _v = inb(REG_DRIVE);             \
+    _v = _v & ~(1 << 6);                  \
+    outb(_v, REG_DRIVE);                 \
 } while(0);
 
 /*
@@ -83,11 +84,11 @@ static int havedisk1 = 0;
  *              REG_DRIVE 0-3 bits holds low four bits of byte 3 of the logical block address.
 */
 #define LBA_SET_BLOCK(n) do {               \
-  int _v = inb(REG_DRIVE);                   \
-  outb(block & 0xff, REG_SEC_NUM);          \
-  outb((block >> 8) & 0xff, REG_CYL_LOW);   \
-  outb((block >> 16) & 0xff, REG_CYL_HIGH); \
-  outb(((block >> 20) & 0xf) | _v, REG_DRIVE); \
+    int _v = inb(REG_DRIVE);                   \
+    outb(block & 0xff, REG_SEC_NUM);          \
+    outb((block >> 8) & 0xff, REG_CYL_LOW);   \
+    outb((block >> 16) & 0xff, REG_CYL_HIGH); \
+    outb(((block >> 20) & 0xf) | _v, REG_DRIVE); \
 } while(0)
 
 /* 2^28 */
@@ -96,13 +97,13 @@ static int havedisk1 = 0;
 static int
 idewait(int checkerr)
 {
-  int r;
+    int r;
 
-  while(((r = inb(REG_STATUS)) & (STATUS_BSY|STATUS_DRDY)) != STATUS_DRDY)
-    ;
-  if(checkerr && (r & (STATUS_DF|STATUS_ERR)) != 0)
-    return -1;
-  return 0;
+    while(((r = inb(REG_STATUS)) & (STATUS_BSY|STATUS_DRDY)) != STATUS_DRDY)
+        ;
+    if(checkerr && (r & (STATUS_DF|STATUS_ERR)) != 0)
+        return -1;
+    return 0;
 }
 
 void ide_init()
