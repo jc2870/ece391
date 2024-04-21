@@ -348,8 +348,6 @@ static bool pages_is_free(unsigned long addr, uint8_t order)
 
     return true;
 out_used:
-    if (order == 0)
-        printf("addr %x is used, slot is %d, bit is %d\n", addr, cur_slot, cur_bit);
     return false;
 }
 

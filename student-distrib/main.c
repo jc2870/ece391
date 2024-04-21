@@ -15,7 +15,7 @@
 #include "mm.h"
 #include "tasks.h"
 #include "fs.h"
-#include "block/ide.h"
+#include "block/hd.h"
 
 #define RUN_TESTS
 
@@ -152,9 +152,8 @@ void entry(unsigned long magic, unsigned long addr)
 
     sti();
     enable_irq(PIC_HARDISK_INTR);
-    ide_init();
-    test_ide_read();
-    test_ide_write();
+    hd_init();
+    hd_test();
 
     /* Enable paging */
     while (1) ;

@@ -3,7 +3,6 @@
 #include "../mm.h"
 #include "hd.h"
 
-char *data_buf = NULL;
 static int havedisk1 = 0;
 
 /* Ref: https://vtda.org/books/Computing/Hardware/SCSI/The_SCSI_Bus_and_IDE_Interface_2nd_Ed.pdf
@@ -111,6 +110,7 @@ void ide_init()
     int i = 0;
     int disk = -1;
 
+    INIT_LIST(&hd_ide_driver.list);
     idewait(0);
     SET_LBA_MODE();
     outb(0, REG_CTL);
@@ -131,12 +131,10 @@ void ide_init()
         }
     }
     SET_CUR_DISK(0);
-    data_buf = alloc_page();
-    panic_on(!data_buf, "alloc buf failed\n");
 }
 
 /* @note: caller must set current disk via SET_CUR_DISK */
-void ide_read(u32 block, char *buf, u32 cnt)
+int ide_read(u32 block, char *buf, u32 cnt)
 {
     panic_on(block >= LBA_MAX_BLOCK, "invalid block: %u", block);
     panic_on((block + cnt) >= LBA_MAX_BLOCK, "invalid block: %u, cnt: %u", block, cnt);
@@ -147,11 +145,13 @@ void ide_read(u32 block, char *buf, u32 cnt)
 
     idewait(0);
 
-    insl(REG_DATA, data_buf, cnt*512/4);
+    insl(REG_DATA, buf, cnt*512/4);
+
+    return cnt;
 }
 
 /* @note: caller must set current disk via SET_CUR_DISK */
-void ide_write(u32 block, char *buf, u32 cnt)
+int ide_write(u32 block, char *buf, u32 cnt)
 {
     panic_on(block >= LBA_MAX_BLOCK, "invalid block: %u", block);
     panic_on((block + cnt) >= LBA_MAX_BLOCK, "invalid block: %u, cnt: %u", block, cnt);
@@ -160,38 +160,53 @@ void ide_write(u32 block, char *buf, u32 cnt)
     LBA_SET_BLOCK(block);
     outb(CMD_WRITE_SEC, REG_CMD);
 
-    outsl(REG_DATA, data_buf, cnt*512/4);
+    outsl(REG_DATA, buf, cnt*512/4);
     idewait(0);
+
+    return cnt;
 }
 
-void test_ide_read()
+void ide_test_read()
 {
+    char *data_buf = alloc_page();
+    panic_on(!data_buf, "alloc page failed\n");
     SET_CUR_DISK(0);
     memset(data_buf, 0, PAGE_SIZE);
     ide_read(15, data_buf, 1);
     panic_on(memcmp(data_buf+0x104, "ext2fs", 6), "read error\n");
+    free_page(data_buf);
 }
 
-void test_ide_write()
+void ide_test_write()
 {
+    char *data_buf = alloc_page();
+
+    panic_on(!data_buf, "alloc page failed\n");
     panic_on(!havedisk1, "disk1 doesn't exist\n");
+
     SET_CUR_DISK(1);
-    memset(data_buf, 'b', 512);
+    memset(data_buf, 'b', 1024);
     ide_write(1, data_buf, 1);
 
-    SET_CUR_DISK(1);
     memset(data_buf, 0, 512);
     ide_read(1, data_buf, 1);
-    memset(data_buf+512, 'b', 512);
     panic_on(memcmp(data_buf, data_buf+512, 512), "write or read error\n");
+
+    free_page(data_buf);
 }
 
-void hd_intr_handler()
-{
-    printf("hard disk interruption\n");
-}
 
-void intr0x3E_handler(int errno)
-{
-    return hd_intr_handler();
-}
+static struct hd_driver_operations hd_ide_ops = {
+    .init           = ide_init,
+    .read           = ide_read,
+    .write          = ide_write,
+    .test_read      = ide_test_read,
+    .test_write     = ide_test_write,
+};
+
+struct hd_driver hd_ide_driver = {
+    .name = "ide",
+    .ops = &hd_ide_ops,
+};
+
+

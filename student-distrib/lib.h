@@ -97,6 +97,24 @@ static inline uint32_t inw(uint16_t port) {
     return val;
 }
 
+static inline void
+insl(int port, void *addr, int cnt)
+{
+  asm volatile("cld; rep insl" :
+               "=D" (addr), "=c" (cnt) :
+               "d" (port), "0" (addr), "1" (cnt) :
+               "memory", "cc");
+}
+
+static inline void
+outsl(int port, const void *addr, int cnt)
+{
+  asm volatile("cld; rep outsl" :
+               "=S" (addr), "=c" (cnt) :
+               "d" (port), "0" (addr), "1" (cnt) :
+               "cc");
+}
+
 /* Reads four bytes from four consecutive ports, starting at "port",
  * concatenates them little-endian style, and returns them */
 static inline uint32_t inl(uint16_t port) {
