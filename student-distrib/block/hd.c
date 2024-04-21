@@ -42,6 +42,7 @@ int hd_write(u32 block, char *buf, u32 cnt)
 void hd_intr_handler()
 {
     printf("hard disk interruption\n");
+    dft_driver->ops->intr_handler();
 }
 
 void intr0x3E_handler(int errno)

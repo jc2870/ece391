@@ -107,13 +107,15 @@ void enable_irq(uint32_t irq_num) {
     outb(value, port);
 }
 
-/* Send end-of-interrupt signal for the specified IRQ */
+/*
+ * Send end-of-interrupt signal for the specified IRQ
+ * @note: if intr from slave chip, we should send eoi both to master and slave chip.
+ */
 void send_eoi(uint32_t irq_num) {
     panic_on(irq_num < PIC_MASTER_FIRST_INTR || irq_num > PIC_SLAVE_FIRST_INTR + 8, "error irq num %u\n", irq_num);
     irq_num -= PIC_MASTER_FIRST_INTR;
     if (irq_num & 8) {
         outb(0x20, PIC_SLAVE_CMD);
-    } else {
-        outb(0x20, PIC_MASTER_CMD);
     }
+    outb(0x20, PIC_MASTER_CMD);
 }

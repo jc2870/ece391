@@ -7,6 +7,7 @@
 
 struct hd_driver_operations {
     void(*init)();
+    void(*intr_handler)();
     int(*read)(u32 block, char *buf, u32 cnt);
     int(*write)(u32 block, char *buf, u32 cnt);
     void(*test_read)();
