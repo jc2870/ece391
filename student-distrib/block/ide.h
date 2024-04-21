@@ -1,9 +1,12 @@
 #ifndef _HD_H
 #define _HD_H
+#include "../types.h"
 
-extern void ideinit();
-extern void test_hd_read();
-extern void test_hd_write();
+extern void ide_init();
+extern void test_ide_read();
+extern void test_ide_write();
+extern void ide_write(u32 block, char *buf, u32 cnt);
+extern void ide_read(u32 block, char *buf, u32 cnt);
 
 static inline void
 insl(int port, void *addr, int cnt)

@@ -1,5 +1,5 @@
 #include "../lib.h"
-#include "hd.h"
+#include "ide.h"
 #include "../mm.h"
 
 char *data_buf = NULL;
@@ -60,6 +60,39 @@ static int havedisk1 = 0;
   outb(_v, REG_DRIVE);                    \
 } while(0);
 
+/*
+ * set logical block addressing mode
+ * LBA = (CylinderNumber * HeadCount + HeadNumber) *  SectorCount + SectorNumber - 1
+ */
+#define SET_LBA_MODE() do {              \
+  int _v = inb(REG_DRIVE);             \
+  _v = _v | (1 << 6);                  \
+  outb(_v, REG_DRIVE);                 \
+} while(0);
+
+/* set cylinder head sector addressing mode */
+#define SET_CHS_MODE() do {              \
+  int _v = inb(REG_DRIVE);             \
+  _v = _v & ~(1 << 6);                  \
+  outb(_v, REG_DRIVE);                 \
+} while(0);
+
+/*
+ * In LBA mode, REG_SEC_NUM contains byte 0 of the logical block number
+ *              REG_CYL_LOW, REG_CYL_HIGH holds bytes 1 and 2 of the logical block number
+ *              REG_DRIVE 0-3 bits holds low four bits of byte 3 of the logical block address.
+*/
+#define LBA_SET_BLOCK(n) do {               \
+  int _v = inb(REG_DRIVE);                   \
+  outb(block & 0xff, REG_SEC_NUM);          \
+  outb((block >> 8) & 0xff, REG_CYL_LOW);   \
+  outb((block >> 16) & 0xff, REG_CYL_HIGH); \
+  outb(((block >> 20) & 0xf) | _v, REG_DRIVE); \
+} while(0)
+
+/* 2^28 */
+#define LBA_MAX_BLOCK   268435456
+
 static int
 idewait(int checkerr)
 {
@@ -72,19 +105,22 @@ idewait(int checkerr)
   return 0;
 }
 
-void ideinit()
+void ide_init()
 {
     int i = 0;
     int disk = -1;
-    int sectors = 0;
 
-    outb(0, REG_CTL);
     idewait(0);
+    SET_LBA_MODE();
+    outb(0, REG_CTL);
     disk = GET_CUR_DISK();
+    panic_on(disk != 0, "unexpected disk:%d, expected 0", disk);
 
     SET_CUR_DISK(1);
     idewait(0);
     disk = GET_CUR_DISK();
+    panic_on(disk != 1, "unexpected disk:%d, expected 1", disk);
+    SET_LBA_MODE();
     outb(0, REG_CTL);
 
     for (i=0; i < 1000; i++) {
@@ -98,37 +134,55 @@ void ideinit()
     panic_on(!data_buf, "alloc buf failed\n");
 }
 
-void test_hd_read()
+/* @note: caller must set current disk via SET_CUR_DISK */
+void ide_read(u32 block, char *buf, u32 cnt)
 {
-    SET_CUR_DISK(0);
-    outb(0, REG_CTL);
-    memset(data_buf, 0, PAGE_SIZE);
+    panic_on(block >= LBA_MAX_BLOCK, "invalid block: %u", block);
+    panic_on((block + cnt) >= LBA_MAX_BLOCK, "invalid block: %u, cnt: %u", block, cnt);
 
-    outb(1, REG_SEC_CNT);
-    outb(0, REG_SEC_NUM);
-    outb(0, REG_CYL_LOW);
-    outb(0, REG_CYL_HIGH);
+    outb(cnt, REG_SEC_CNT);
+    LBA_SET_BLOCK(block);
     outb(CMD_READ_SEC, REG_CMD);
 
     idewait(0);
 
-    insl(REG_DATA, data_buf, 512/4);
+    insl(REG_DATA, data_buf, cnt*512/4);
 }
-void test_hd_write()
+
+/* @note: caller must set current disk via SET_CUR_DISK */
+void ide_write(u32 block, char *buf, u32 cnt)
+{
+    panic_on(block >= LBA_MAX_BLOCK, "invalid block: %u", block);
+    panic_on((block + cnt) >= LBA_MAX_BLOCK, "invalid block: %u, cnt: %u", block, cnt);
+
+    outb(cnt, REG_SEC_CNT);
+    LBA_SET_BLOCK(block);
+    outb(CMD_WRITE_SEC, REG_CMD);
+
+    outsl(REG_DATA, data_buf, cnt*512/4);
+    idewait(0);
+}
+
+void test_ide_read()
+{
+    SET_CUR_DISK(0);
+    memset(data_buf, 0, PAGE_SIZE);
+    ide_read(15, data_buf, 1);
+    panic_on(memcmp(data_buf+0x104, "ext2fs", 6), "read error\n");
+}
+
+void test_ide_write()
 {
     panic_on(!havedisk1, "disk1 doesn't exist\n");
     SET_CUR_DISK(1);
-    outb(0, REG_CTL);
-
     memset(data_buf, 'b', 512);
-    outb(1, REG_SEC_CNT);
-    outb(0, REG_SEC_NUM);
-    outb(0, REG_CYL_LOW);
-    outb(0, REG_CYL_HIGH);
-    outb(CMD_WRITE_SEC, REG_CMD);
+    ide_write(1, data_buf, 1);
 
-    outsl(REG_DATA, data_buf, 512/4);
-    idewait(0);
+    SET_CUR_DISK(1);
+    memset(data_buf, 0, 512);
+    ide_read(1, data_buf, 1);
+    memset(data_buf+512, 'b', 512);
+    panic_on(memcmp(data_buf, data_buf+512, 512), "write or read error\n");
 }
 
 void hd_intr_handler()
