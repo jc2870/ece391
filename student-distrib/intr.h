@@ -7,6 +7,8 @@
 
 #define PIC_TIMER_INTR    0x30
 #define PIC_KEYBOARD_INTR 0x31
+#define PIC_SERIAL1_INTR  0x33  /* COMS2/COMS4 */
+#define PIC_SERIAL2_INTR  0x34  /* COMS1/COMS3 */
 #define PIC_SOFTDISK_INTR 0x36
 #define PIC_PRINTER_INTR  0x37
 #define PIC_RTC_INTR      0x38

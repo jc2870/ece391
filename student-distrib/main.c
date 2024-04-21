@@ -2,6 +2,7 @@
  * vim:ts=4 noexpandtab
  */
 
+#include "intr.h"
 #include "mouse.h"
 #include "multiboot.h"
 #include "x86_desc.h"
@@ -16,6 +17,7 @@
 #include "tasks.h"
 #include "fs.h"
 #include "block/hd.h"
+#include "serial.h"
 
 #define RUN_TESTS
 
@@ -154,6 +156,16 @@ void entry(unsigned long magic, unsigned long addr)
     enable_irq(PIC_HARDISK_INTR);
     hd_init();
     hd_test();
+
+    enable_irq(PIC_SERIAL2_INTR);
+    init_serial();
+    write_serial('\n');
+    for (char *p = "ece..."; *p; ++p) {
+        write_serial(*p);
+    }
+    write_serial('\n');
+    char c = read_serial();
+    write_serial(c);
 
     /* Enable paging */
     while (1) ;

@@ -206,6 +206,7 @@ void setup_intr_handler()
     SET_EXTERN_INTR_HANDLER(0x31);
     SET_EXTERN_INTR_HANDLER(0x3C);
     SET_EXTERN_INTR_HANDLER(0x3E);
+    SET_EXTERN_INTR_HANDLER(0x34);
 }
 
 void early_setup_idt()
@@ -246,6 +247,7 @@ void early_setup_idt()
     set_intr_gate(PIC_HARDISK_INTR, intr0x3E_entry);
 
     set_intr_gate(PIC_KEYBOARD_INTR, intr0x31_entry);
+    set_intr_gate(PIC_SERIAL2_INTR, intr0x34_entry);
     set_intr_gate(PIC_MOUSE_INTR, intr0x3C_entry);
     asm volatile ("lidt %0" ::"m"(idt_desc));
 

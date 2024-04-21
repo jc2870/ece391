@@ -50,6 +50,7 @@ extern void intr0x30_entry();
 extern void intr0x31_entry();
 extern void intr0x3C_entry();
 extern void intr0x3E_entry();
+extern void intr0x34_entry();
 extern void syscall_interrupt_entry();
 extern void timer_interrupt_entry();
 
