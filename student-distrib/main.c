@@ -68,7 +68,6 @@ static void self_test()
 
 void entry(unsigned long magic, unsigned long addr)
 {
-    struct fs_mod *fs = NULL;
     console_init();
     /*
      * Check if MAGIC is valid and print the Multiboot information structure
@@ -143,9 +142,9 @@ void entry(unsigned long magic, unsigned long addr)
         char *data = alloc_page();
 
         clear();
-        read_data_by_name((const u8*)"frame0.txt", 0, data, BLOCK_SIZE);
+        read_data_by_name("frame0.txt", 0, data, BLOCK_SIZE);
         printf("%s\n", data);
-        read_data_by_name((const u8*)"frame1.txt", 0, data, BLOCK_SIZE);
+        read_data_by_name("frame1.txt", 0, data, BLOCK_SIZE);
         printf("%s\n", data);
     }
     clear();

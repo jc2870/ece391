@@ -11,10 +11,9 @@ module_t *get_fs_mod(multiboot_info_t *mbi)
     module_t *fs_mod = NULL;
     if (CHECK_FLAG(mbi->flags, 3)) {
         int mod_count = 0;
-        int i;
         module_t* mod = (module_t*)mbi->mods_addr;
         while (mod_count < mbi->mods_count) {
-            if (memcmp(mod->string, FS_MOD, sizeof(FS_MOD))) {
+            if (memcmp((void*)mod->string, FS_MOD, sizeof(FS_MOD))) {
                 fs_mod = mod;
                 break;
             }
@@ -56,7 +55,7 @@ void display_file_name()
 /* @param: fname in
  *         dentry out
  */
-s32 read_dentry_by_name(const u8* fname, dentry_t* dentry)
+s32 read_dentry_by_name(const char* fname, dentry_t* dentry)
 {
     int len = strlen(fname);
     int i = 0;
@@ -97,7 +96,7 @@ s32 read_dentry_by_ino(u32 index, dentry_t* dentry)
     return -1;
 }
 
-s32 __read_data_by_ino(u32 ino, u32 offset, u8 *buf, u32 len)
+s32 __read_data_by_ino(u32 ino, u32 offset, char *buf, u32 len)
 {
     struct inode *inode = NULL;
     int nr_blocks;
@@ -121,9 +120,11 @@ s32 __read_data_by_ino(u32 ino, u32 offset, u8 *buf, u32 len)
         block = inode->data_blocks[i];
         memcpy(buf + oft, fs->blocks[block].data, nr_bytes);
     }
+
+    return len;
 }
 
-s32 read_data(u32 ino, u32 offset, u8 *buf, u32 len)
+s32 read_data(u32 ino, u32 offset, char *buf, u32 len)
 {
     struct dentry d;
     int err;
@@ -139,7 +140,7 @@ s32 read_data(u32 ino, u32 offset, u8 *buf, u32 len)
     return __read_data_by_ino(ino, offset, buf, len);
 }
 
-s32 read_data_by_name(const u8 *fname, u32 offset, u8 *buf, u32 len)
+s32 read_data_by_name(const char *fname, u32 offset, char *buf, u32 len)
 {
     struct dentry d;
 

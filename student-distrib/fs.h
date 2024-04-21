@@ -50,9 +50,9 @@ struct fs_mod {
 extern void init_fs(multiboot_info_t *mbi);
 extern void display_file_name(void);
 
-extern s32 read_dentry_by_name(const u8* fname, dentry_t* dentry);
+extern s32 read_dentry_by_name(const char* fname, dentry_t* dentry);
 extern s32 read_dentry_by_ino(u32 index, dentry_t* dentry);
-extern s32 read_data_by_ino(u32 inode, u32 offset, u8 *buf, u32 len);
-extern s32 read_data_by_name(const u8 *fname, u32 offset, u8 *buf, u32 len);
+extern s32 read_data_by_ino(u32 inode, u32 offset, char *buf, u32 len);
+extern s32 read_data_by_name(const char *fname, u32 offset, char *buf, u32 len);
 
 #endif

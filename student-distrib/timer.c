@@ -6,8 +6,6 @@
 #include "tasks.h"
 #include "x86_desc.h"
 
-static void __switch_to();
-
 #define update_tss(task) tss.esp0 = (unsigned long)(((char*)task)+STACK_SIZE)
 
 #define switch_to(cur,new) \
@@ -43,7 +41,6 @@ void schedule()
 {
     struct task_struct *cur = current();
     struct task_struct *next = NULL;
-    struct list *list = NULL;
     if (list_empty(&runnable_tasks)) {
         return;
     }
@@ -64,11 +61,6 @@ void schedule()
      * Stack has changed, cur & next also changed, so we can't use cur/next any more
      * asm volatile ("movl %0, %%cr3;" : :"r"(next->mm.pgdir));
      */
-}
-
-void __switch_to()
-{
-
 }
 
 void timer_handler(struct regs *cpu_state)

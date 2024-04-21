@@ -87,7 +87,6 @@ void init_test_tasks()
     // struct task_struct *task0 = NULL;
     // struct task_struct *task1 = NULL;
     // struct task_struct *task2 = NULL;
-    void *p = NULL;
 
     the_tss_desc.granularity   = 0x0;
     the_tss_desc.opsize        = 0x0;
