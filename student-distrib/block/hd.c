@@ -1,5 +1,7 @@
 #include "hd.h"
 #include "ide.h"
+#include "../i8259.h"
+#include "../intr.h"
 
 struct list hd_divers_list;
 struct hd_driver *dft_driver;
@@ -17,6 +19,7 @@ void hd_init()
     list_add_tail(&hd_divers_list, &hd_ide_driver.list);
 
     set_default_driver();
+    enable_irq(PIC_HARDISK_INTR);
 }
 
 void hd_test()

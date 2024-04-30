@@ -5,6 +5,7 @@
 #include "errno.h"
 #include "vga.h"
 #include "stdarg.h"
+#include "serial.h"
 
 static int screen_x;
 static int screen_y;
@@ -370,6 +371,7 @@ void putc(uint8_t c) {
     if(c == '\n' || c == '\r') {
         screen_y++;
         screen_x = 0;
+        uartputc('\n');
     } else if (c == '\b') {
         screen_x--;
         if (screen_x < 0) {
@@ -378,6 +380,9 @@ void putc(uint8_t c) {
         }
         *(uint8_t *)(video_mem + ((NUM_COLS * screen_y + screen_x) << 1)) = ' ';
         *(uint8_t *)(video_mem + ((NUM_COLS * screen_y + screen_x) << 1) + 1) = ATTRIB;
+        uartputc('\b');
+        uartputc(' ');
+        uartputc('\b');
     } else {
         *(uint8_t *)(video_mem + ((NUM_COLS * screen_y + screen_x) << 1)) = c;
         *(uint8_t *)(video_mem + ((NUM_COLS * screen_y + screen_x) << 1) + 1) = ATTRIB;
@@ -386,8 +391,8 @@ void putc(uint8_t c) {
         screen_y = (screen_y + (screen_x / NUM_COLS)) % NUM_ROWS;
         if (screen_x == 0)
             screen_y = (screen_y+1)%NUM_ROWS;
+        uartputc(c);
     }
-
     set_cursor(screen_x, screen_y);
 }
 

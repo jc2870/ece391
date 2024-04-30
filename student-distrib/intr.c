@@ -159,12 +159,6 @@ static void intr0x33_handler(unsigned long errno)
     KERN_INFO("serial2 interrupt occured\n");
 }
 
-/* APIC_MASTER_FIRST_INTR +4 */
-static void intr0x34_handler(unsigned long errno)
-{
-    KERN_INFO("serial1 interrupt occured\n");
-}
-
 /* APIC_SLAVE_FIRST_INTR */
 static void intr0x38_handler(unsigned long errno)
 {
@@ -252,10 +246,6 @@ void early_setup_idt()
     asm volatile ("lidt %0" ::"m"(idt_desc));
 
     setup_intr_handler();
-
-    enable_irq(PIC_KEYBOARD_INTR);
-    // enable_irq(PIC_TIMER_INTR);
-    // enable_irq(PIC_MOUSE_INTR);
 }
 
 unsigned long generic_intr_handler(unsigned long errno, unsigned long intr_num, unsigned long esp)

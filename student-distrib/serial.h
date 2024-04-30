@@ -6,7 +6,5 @@
 #define COMS2 0x2F8
 
 void init_serial();
-char read_serial();
-void write_serial(char c);
-
+void uartputc();
 #endif

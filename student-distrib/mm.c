@@ -211,7 +211,9 @@ int page_bitmap_init(unsigned long addr)
     }
     ITERATE_PAGES({}, {
         unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
+#ifdef DEBUG_MM
         printf("address %x is used, slot is %d, bit is %d\n", cur_addr, __cur_slot, __cur_bit);
+#endif
     });
 
     return 0;
@@ -431,11 +433,15 @@ void mm_show_statistics(uint32_t ret[MAX_ORDER])
         if (ret) {
             ret[i] = phy_mm_stcutre.nr_free_pages[i];
         }
+#ifdef DEBUG_MM
         printf("order%d: %u\n", i, phy_mm_stcutre.nr_free_pages[i]);
+#endif
         ++i;
     }
 
+#ifdef DEBUG_MM
     printf("There are %u free pages\n", phy_mm_stcutre.all_free_pages);
+#endif
 }
 
 int init_paging(unsigned long addr)
@@ -489,7 +495,7 @@ void enable_paging()
     int a = 10;
     a += 100;
     /* test video memory paging */
-    printf("a is %d\n", a);
+    printf("test video mem\n");
 }
 
 /*

@@ -1,48 +1,81 @@
 #include "serial.h"
 #include "lib.h"
+#include "i8259.h"
+#include "intr.h"
+
+static int uart = 0;
+void uartputc(int c);
+static int uartgetc(void);
 
 void init_serial() {
-    outb(0x00, COMS1 + 1);    // Disable all interrupts
-    outb(0x80, COMS1 + 3);    // Enable DLAB (set baud rate divisor)
-    outb(0x03, COMS1 + 0);    // Set divisor to 3 (lo byte) 38400 baud
-    outb(0x00, COMS1 + 1);    //                  (hi byte)
-    outb(0x03, COMS1 + 3);    // 8 bits, no parity, one stop bit
-    outb(0xC7, COMS1 + 2);    // Enable FIFO, clear them, with 14-byte threshold
-    outb(0x0B, COMS1 + 4);    // IRQs enabled, RTS/DSR set
-    outb(0x1E, COMS1 + 4);    // Set in loopback mode, test the serial chip
-    outb(0xAE, COMS1 + 0);    // Test serial chip (send byte 0xAE and check if serial returns same byte)
+    char *p;
 
-    // Check if serial is faulty (i.e: not same byte as sent)
-    if(inb(COMS1 + 0) != 0xAE) {
-       panic("serial is faulty\n");
+    // Turn off the FIFO
+    outb(0, COMS1+2);
+
+    // 9600 baud, 8 data bits, 1 stop bit, parity off.
+    outb(0x80, COMS1+3);    // Unlock divisor
+    outb(115200/9600, COMS1+0);
+    outb(0x00, COMS1+1);
+    outb(0x03, COMS1+3);    // Lock divisor, 8 data bits.
+    outb(0x00, COMS1+4);
+    outb(0x01, COMS1+1);    // Enable receive interrupts.
+
+    // If status is 0xFF, no serial port.
+    if(inb(COMS1+5) == 0xFF)
+       return;
+    uart = 1;
+
+    // Acknowledge pre-existing interrupt conditions;
+    // enable interrupts.
+    inb(COMS1+2);
+    inb(COMS1+0);
+    enable_irq(PIC_SERIAL2_INTR);
+
+    uartputc('\n');
+    for (char *p = "ece391...\n"; *p; ++p) {
+        uartputc(*p);
     }
-
-    // If serial is not faulty set it in normal operation mode
-    // (not-loopback with IRQs enabled and OUT#1 and OUT#2 bits enabled)
-    outb(0x0F, COMS1 + 4);
 }
 
-int serial_received() {
-   return inb(COMS1 + 5) & 1;
+static void mdelay()
+{
+
 }
 
-char read_serial() {
-   while (serial_received() == 0);
+void uartputc(int c)
+{
+    int i;
 
-   return inb(COMS1);
+    if(!uart)
+        return;
+    for(i = 0; i < 128 && !(inb(COMS1+5) & 0x20); i++)
+        mdelay();
+    outb(c, COMS1+0);
 }
 
-int is_transmit_empty() {
-   return inb(COMS1 + 5) & 0x20;
-}
-
-void write_serial(char c) {
-   while (is_transmit_empty() == 0);
-
-   outb(c, COMS1);
+int uartgetc(void)
+{
+  if(!uart)
+    return -1;
+  if(!(inb(COMS1+5) & 0x01))
+    return -1;
+  return inb(COMS1+0);
 }
 
 void intr0x34_handler()
 {
-
+    char c = uartgetc();
+    switch (c) {
+    case '\r':
+        uartputc('\n');
+        break;
+    case 0x7f: // backspace
+        uartputc('\b');
+        uartputc(' ');
+        uartputc('\b');
+        break;
+    default:
+        printf("%c", c);
+    }
 }

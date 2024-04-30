@@ -1,5 +1,7 @@
 #include "lib.h"
 #include "vga.h"
+#include "intr.h"
+#include "i8259.h"
 
 #define DATA_PORT   0x60
 #define STATUS_PORT 0x64  /* for read */
@@ -146,62 +148,7 @@ int keyboard_init()
 
     outb(0xf4, DATA_PORT);
 
-    return 0;
-
-    /* Disable devices */
-    outb(0xad, CMD_PORT);
-    outb(0xa7, CMD_PORT);
-
-    /* Flush The Output Buffer */
-    inb(DATA_PORT);
-
-    /* Set the Controller Configuration Byte */
-    outb(0x20, CMD_PORT);
-    v = inb(DATA_PORT);
-    if (!(v & (1 << 5))) {
-        KERN_INFO("PS/2 port disabled\n");
-    }
-    v |= 3;
-    v &= ~0x10;
-    // v &= ~(1 << 6);
-    outb(0x60, CMD_PORT);
-    outb(v, CMD_PORT);
-
-    /* Perform controller self test */
-    outb(0xaa, CMD_PORT);
-    v = inb(DATA_PORT);
-    if (v != 0x55) {
-        KERN_INFO("PS/2 controller self test failed\n");
-    }
-
-    /* Determine if there are 2 channels */
-    outb(0xa8, CMD_PORT);
-    v = inb(STATUS_PORT);
-    if (v & (1 << 5)) {
-        KERN_INFO("not a dual channel controller\n");
-        return -1;
-    }
-    outb(0xa7, CMD_PORT);
-
-    /* Perform interface tests */
-    outb(0xAB, CMD_PORT);
-    v = inb(DATA_PORT);
-    if (v) {
-        KERN_INFO("The test of first PS/2 port failed\n");
-        return -1;
-    }
-    outb(0xA9, CMD_PORT);
-    v = inb(DATA_PORT);
-    if (v) {
-        KERN_INFO("The test of second PS/2 port failed\n");
-        return -1;
-    }
-
-    /* Enable devices */
-    outb(0xa8, CMD_PORT);
-    outb(0xae, CMD_PORT);
-    outb(0xf4, DATA_PORT);
-
+    enable_irq(PIC_KEYBOARD_INTR);
     return 0;
 }
 

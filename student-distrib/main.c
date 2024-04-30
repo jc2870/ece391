@@ -75,7 +75,6 @@ void entry(unsigned long magic, unsigned long addr)
      * Check if MAGIC is valid and print the Multiboot information structure
      * pointed by ADDR.
      */
-    mprintf("This is test %d %lld %u %llu 0x%x 0x%llx and done\n", 16, 16ll, 16, 16ll,16, 16ll);
     multiboot_info(magic, addr);
 
     get_apic_id();
@@ -102,6 +101,7 @@ void entry(unsigned long magic, unsigned long addr)
     /* Init the PIC */
     cli();
     i8259_init();
+    sti();
     if (init_timer()) {
         panic("timer init failed\n");
         return;
@@ -111,11 +111,13 @@ void entry(unsigned long magic, unsigned long addr)
         panic("keyboard init failed\n");
         return;
     }
+    init_serial();
     clear();
     if (init_paging(addr)) {
         panic("paging init failed\n");
         return;
     }
+    printf("\ntest\n");
 
     {
         struct task_struct *task = (struct task_struct*)INIT_TASK;
@@ -152,20 +154,9 @@ void entry(unsigned long magic, unsigned long addr)
     clear();
 #endif
 
-    sti();
-    enable_irq(PIC_HARDISK_INTR);
+    // sti();
     hd_init();
     hd_test();
-
-    enable_irq(PIC_SERIAL2_INTR);
-    init_serial();
-    write_serial('\n');
-    for (char *p = "ece..."; *p; ++p) {
-        write_serial(*p);
-    }
-    write_serial('\n');
-    char c = read_serial();
-    write_serial(c);
 
     /* Enable paging */
     while (1) ;
