@@ -109,6 +109,9 @@ syscall_interrupt_entry:
     pushl %gs
     cld
     pushl %esp
+    pushl %edx
+    pushl %ecx
+    pushl %ebx
     pushl %eax
     call syscall_handler
     # The above call instruction will overwrite esp regesiter, so we need restore esp using eax

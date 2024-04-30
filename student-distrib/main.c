@@ -117,8 +117,6 @@ void entry(unsigned long magic, unsigned long addr)
         panic("paging init failed\n");
         return;
     }
-    printf("\ntest\n");
-
     {
         struct task_struct *task = (struct task_struct*)INIT_TASK;
         strcpy(task->comm, "init");
