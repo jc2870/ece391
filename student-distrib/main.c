@@ -63,7 +63,7 @@ static uint8_t get_apic_id()
         return (regs[3] >> 24);
 }
 
-static void self_test()
+static __attribute__((unused)) void self_test()
 {
     asm volatile ("int $0x3");
 }

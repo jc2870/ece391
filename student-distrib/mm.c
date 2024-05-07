@@ -210,8 +210,8 @@ int page_bitmap_init(unsigned long addr)
         }
     }
     ITERATE_PAGES({}, {
-        unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
 #ifdef DEBUG_MM
+        unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
         printf("address %x is used, slot is %d, bit is %d\n", cur_addr, __cur_slot, __cur_bit);
 #endif
     });
@@ -623,8 +623,8 @@ void free_page(void *addr)
  */
 void page_fault_handler(unsigned long addr, unsigned long errno)
 {
-    bool page_present = !(errno & (1 << 0));
-    bool op_write = errno & (1 << 1);
+    // bool page_present = !(errno & (1 << 0));
+    // bool op_write = errno & (1 << 1);
     bool from_user = errno & (1 << 2);
 
     // KERN_INFO("page fault occured addr: 0x%x\n", addr);
