@@ -1,5 +1,5 @@
-#ifndef _FS_H_
-#define _FS_H
+#ifndef _INIT_RD_H_
+#define _INIT_RD_H_
 #include "types.h"
 #include "multiboot.h"
 
