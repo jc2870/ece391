@@ -28,7 +28,7 @@ bootimg: Makefile $(OBJS)
 dep: Makefile.dep
 
 Makefile.dep: $(SRC)
-	python gen_sys.py
+	python3 gen_sys.py
 	$(CC) -MM $(CPPFLAGS) $(SRC) > $@
 
 .PHONY: clean

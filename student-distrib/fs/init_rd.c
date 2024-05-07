@@ -1,36 +1,35 @@
-#include "fs.h"
+#include "init_rd.h"
 #include "liballoc.h"
 #include "lib.h"
 
-#define FS_MOD "filesys_img"
+#define INITRD_FS_MOD "/filesys_img"
 
-static struct fs_mod *fs = NULL;
+static struct initrd_fs_mod *fs = NULL;
 
 module_t *get_fs_mod(multiboot_info_t *mbi)
 {
-    module_t *fs_mod = NULL;
     if (CHECK_FLAG(mbi->flags, 3)) {
         int mod_count = 0;
         module_t* mod = (module_t*)mbi->mods_addr;
         while (mod_count < mbi->mods_count) {
-            if (memcmp((void*)mod->string, FS_MOD, sizeof(FS_MOD))) {
-                fs_mod = mod;
-                break;
+            if (!memcmp((void*)mod->string, INITRD_FS_MOD, sizeof(INITRD_FS_MOD))) {
+                return mod;
             }
             mod_count++;
             mod++;
         }
     }
 
-    return fs_mod;
+    return NULL;
 }
 
 void init_fs(multiboot_info_t *mbi)
 {
-    fs = kmalloc(sizeof(struct fs_mod));
+    fs = kmalloc(sizeof(struct initrd_fs_mod));
     module_t *module = get_fs_mod(mbi);
     int i = 0;
     panic_on(!fs, "alloc fs failed\n");
+    panic_on(!module, "cannot find fs module %s\n", INITRD_FS_MOD);
 
     fs->boot_block = (void*)module->mod_start;
     fs->inodes = (void*)(fs->boot_block + 1);
@@ -55,14 +54,14 @@ void display_file_name()
 /* @param: fname in
  *         dentry out
  */
-s32 read_dentry_by_name(const char* fname, dentry_t* dentry)
+s32 read_dentry_by_name(const char* fname, initrd_dentry_t* dentry)
 {
     int len = strlen(fname);
     int i = 0;
 
     len = len < DENTRY_LEN-1 ? len : DENTRY_LEN-1;
     for (i = 0; i < fs->boot_block->stat.nr_dentries; ++i) {
-        struct dentry *d = &fs->boot_block->dentries[i];
+        struct initrd_dentry *d = &fs->boot_block->dentries[i];
         if (!strncmp(fname, d->name, len)) {
             strcpy(dentry->name, d->name);
             dentry->inode = d->inode;
@@ -78,12 +77,12 @@ s32 read_dentry_by_name(const char* fname, dentry_t* dentry)
 /* @param: index in
  *         dentry out
  */
-s32 read_dentry_by_ino(u32 index, dentry_t* dentry)
+s32 read_dentry_by_ino(u32 index, initrd_dentry_t* dentry)
 {
     int i = 0;
 
     for (i = 0; i < fs->boot_block->stat.nr_dentries; ++i) {
-        struct dentry *d = &fs->boot_block->dentries[i];
+        struct initrd_dentry *d = &fs->boot_block->dentries[i];
         if (d->inode == index) {
             strcpy(dentry->name, d->name);
             dentry->inode = d->inode;
@@ -98,7 +97,7 @@ s32 read_dentry_by_ino(u32 index, dentry_t* dentry)
 
 s32 __read_data_by_ino(u32 ino, u32 offset, char *buf, u32 len)
 {
-    struct inode *inode = NULL;
+    struct initrd_inode_t *inode = NULL;
     int nr_blocks;
     int nr_bytes;
     int i, oft = 0;
@@ -126,7 +125,7 @@ s32 __read_data_by_ino(u32 ino, u32 offset, char *buf, u32 len)
 
 s32 read_data(u32 ino, u32 offset, char *buf, u32 len)
 {
-    struct dentry d;
+    struct initrd_dentry d;
     int err;
 
     panic_on(offset, "current offset only support 0\n");
@@ -142,7 +141,7 @@ s32 read_data(u32 ino, u32 offset, char *buf, u32 len)
 
 s32 read_data_by_name(const char *fname, u32 offset, char *buf, u32 len)
 {
-    struct dentry d;
+    struct initrd_dentry d;
 
     panic_on(offset, "current offset only support 0\n");
     read_dentry_by_name(fname, &d);

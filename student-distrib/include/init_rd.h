@@ -18,31 +18,31 @@ struct fs_stat {
 #define D_TYPE_DIR 1
 #define D_TYPE_REG 2
 
-typedef struct dentry {
+typedef struct initrd_dentry {
     char name[DENTRY_LEN];
     u32 type;
     u32 inode;
 
     char reserved[24];
-} dentry_t ;
+} initrd_dentry_t ;
 
-struct inode {
+struct initrd_inode_t {
     u32 size; /* size in bytes */
     u32 data_blocks[BLOCK_SIZE/4-1];
 };
 
 struct boot_block {
     struct fs_stat stat;
-    struct dentry dentries[BLOCK_SIZE/64-1];
+    struct initrd_dentry dentries[BLOCK_SIZE/64-1];
 };
 
 struct data_block {
     char data [BLOCK_SIZE];
 };
 
-struct fs_mod {
+struct initrd_fs_mod {
     struct boot_block *boot_block;
-    struct inode *inodes;
+    struct initrd_inode_t *inodes;
     struct data_block *blocks;
 };
 
@@ -50,8 +50,8 @@ struct fs_mod {
 extern void init_fs(multiboot_info_t *mbi);
 extern void display_file_name(void);
 
-extern s32 read_dentry_by_name(const char* fname, dentry_t* dentry);
-extern s32 read_dentry_by_ino(u32 index, dentry_t* dentry);
+extern s32 read_dentry_by_name(const char* fname, initrd_dentry_t* dentry);
+extern s32 read_dentry_by_ino(u32 index, initrd_dentry_t* dentry);
 extern s32 read_data_by_ino(u32 inode, u32 offset, char *buf, u32 len);
 extern s32 read_data_by_name(const char *fname, u32 offset, char *buf, u32 len);
 

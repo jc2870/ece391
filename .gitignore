@@ -3,3 +3,5 @@ GRTAGS
 GTAGS
 *.o
 hd.img
+.cache
+compile_commands.json
