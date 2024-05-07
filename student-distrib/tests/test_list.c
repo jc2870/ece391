@@ -1,4 +1,4 @@
-#include "../list.h"
+#include "list.h"
 
 struct entry {
     int a,b,c;

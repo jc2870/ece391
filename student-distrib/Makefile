@@ -10,7 +10,7 @@ LDFLAGS+=-nostdlib -static -m32
 CC=gcc
 
 #If you have any .h files in another directory, add -I<dir> to this line
-CPPFLAGS+=-nostdinc -g -m32
+CPPFLAGS+=-nostdinc -g -m32 -I./include -I./
 
 # This generates the list of source files
 SRC=$(wildcard *.S) $(wildcard *.c) $(wildcard */*.S) $(wildcard */*.c)

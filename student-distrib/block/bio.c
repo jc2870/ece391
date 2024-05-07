@@ -1,5 +1,5 @@
 #include "bio.h"
-#include "../lib.h"
+#include "lib.h"
 
 void submit_bio(struct bio* bio)
 {

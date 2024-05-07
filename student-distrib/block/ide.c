@@ -1,6 +1,6 @@
-#include "../lib.h"
+#include "lib.h"
 #include "ide.h"
-#include "../mm.h"
+#include "mm.h"
 #include "hd.h"
 
 static int havedisk1 = 0;

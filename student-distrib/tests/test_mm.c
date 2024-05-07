@@ -1,6 +1,6 @@
-#include "../types.h"
-#include "../mm.h"
-#include "../lib.h"
+#include "types.h"
+#include "mm.h"
+#include "lib.h"
 
 extern pgd_t* init_pgtbl_dir;
 

@@ -1,7 +1,7 @@
 #include "hd.h"
 #include "ide.h"
-#include "../i8259.h"
-#include "../intr.h"
+#include "i8259.h"
+#include "intr.h"
 
 struct list hd_divers_list;
 struct hd_driver *dft_driver;

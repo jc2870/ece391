@@ -1,7 +1,7 @@
 #ifndef _HD_H
 #define _HD_H
-#include "../types.h"
-#include "../list.h"
+#include "types.h"
+#include "list.h"
 
 #define MAX_DRIVER_NAME_LEN 8
 

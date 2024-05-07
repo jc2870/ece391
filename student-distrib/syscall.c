@@ -9,7 +9,7 @@
  */
 ssize_t syscall_handler(u32 n, u32 a1, u32 a2, u32 a3, u32 esp)
 {
-    if (n >= __NR_max) {
+    if (n >= sizeof(syscall_table)) {
         return -EINVAL;
     }
 
