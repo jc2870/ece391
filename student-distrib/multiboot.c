@@ -35,6 +35,17 @@ void multiboot_info(unsigned long magic, unsigned long addr)
     if (CHECK_FLAG(mbi->flags, 2))
         printf("cmdline = %s\n", (char *)mbi->cmdline);
 
+    if (CHECK_FLAG(mbi->flags, 3)) {
+        int mod_count = 0;
+        module_t* mod = (module_t*)mbi->mods_addr;
+        while (mod_count < mbi->mods_count) {
+            printf("module %s start: 0x%lx end: 0x%lx\n",
+                    mod->string, mod->mod_start, mod->mod_end);
+            mod_count++;
+            mod++;
+        }
+    }
+
     /* Bits 4 and 5 are mutually exclusive! */
     if (CHECK_FLAG(mbi->flags, 4) && CHECK_FLAG(mbi->flags, 5)) {
         printf("WARNING: Both bits 4 and 5 are set.\n");
@@ -71,7 +82,7 @@ void multiboot_info(unsigned long magic, unsigned long addr)
         for (drive = (struct drive_struct*)mbi->drive_addr;
              (uint32_t)drive < mbi->drive_addr + mbi->drive_length;
              drive = (struct drive_struct*)((uint32_t)drive + drive->size)) {
-                printf("mode is %d, cylinders is %d, heads is %d, sectors is %d\n",
+                printf("\tmode is %d, cylinders is %d, heads is %d, sectors is %d\n",
                     drive->drive_mode, drive->drive_cylinders, drive->drive_heads, drive->drive_sectors);
              }
     }

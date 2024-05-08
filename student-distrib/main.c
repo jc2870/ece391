@@ -38,15 +38,13 @@ static bool detect_apic()
         cpuid(1, regs);
 
         if (CHECK_FLAG(regs[3], 9)) {
-            KERN_INFO("APIC present\n");
             return true;
         } else {
-            KERN_INFO("WARNING APIC absent\n");
             return false;
         }
 }
 
-static uint8_t get_apic_id()
+static __unused uint8_t get_apic_id()
 {
         uint32_t regs[4] = {0};
 
@@ -63,22 +61,25 @@ static uint8_t get_apic_id()
         return (regs[3] >> 24);
 }
 
-static __attribute__((unused)) void self_test()
+static __unused void self_test()
 {
     asm volatile ("int $0x3");
 }
 
 void entry(unsigned long magic, unsigned long addr)
 {
+    if (detect_apic() == false)
+        return;
     console_init();
+    i8259_init();
+    early_setup_idt();
+    init_serial();
+    sti();
     /*
      * Check if MAGIC is valid and print the Multiboot information structure
      * pointed by ADDR.
      */
     multiboot_info(magic, addr);
-
-    get_apic_id();
-
     {
         char vendor[12];
         uint32_t regs[4];
@@ -90,28 +91,21 @@ void entry(unsigned long magic, unsigned long addr)
 
         cpuid(1, regs);
         unsigned logical = (regs[1] >> 16) & 0xff;
-        KERN_INFO("there are %u logical cores\n", logical);
+        printf("there are %u logical cores\n", logical);
         cpuid(4, regs);
         uint32_t cores = ((regs[0] >> 26) & 0x3f) + 1;
-        KERN_INFO("there are %u physical cores\n", cores);
+        printf("there are %u physical cores\n", cores);
     }
 
-    if (detect_apic() == false)
-        return;
     /* Init the PIC */
-    cli();
-    i8259_init();
-    sti();
     if (init_timer()) {
         panic("timer init failed\n");
         return;
     }
-    early_setup_idt();
     if (keyboard_init()) {
         panic("keyboard init failed\n");
         return;
     }
-    init_serial();
     clear();
     if (init_paging(addr)) {
         panic("paging init failed\n");

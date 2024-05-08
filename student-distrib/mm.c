@@ -67,8 +67,8 @@ void flush_tlb()
 }
 
 /* @NOTE: caller must hold mm lock */
-#define ITERATE_PAGES(free_statements, used_statements)     \
-    int __cur_slot, __cur_bit;                                         \
+#define ITERATE_PAGES(free_statements, used_statements)     do {        \
+    int __cur_slot, __cur_bit;                                          \
     int ___nr_slots = ((phy_mem_len / PAGE_SIZE) + BITS_IN_SLOT)/BITS_IN_SLOT;  \
     for (__cur_slot = 0; __cur_slot < ___nr_slots; ++__cur_slot) {    \
         /* every bit in uint8 */                   \
@@ -81,6 +81,7 @@ void flush_tlb()
             }                                                                                       \
         }                                                                                           \
     }                                                                                               \
+} while (0)
 
 
 /* only alloc 4k size memory, used for alloc page table */
@@ -148,7 +149,7 @@ int page_bitmap_init(unsigned long addr)
                 continue;
             if (!mmap->base_addr_high && !mmap->base_addr_low)
                 continue;
-            printf("    base_addr = 0x%#x%#x, length = 0x%#x%#x\n",
+            printf("\tbase_addr = 0x%#x%#x, length = 0x%#x%#x\n",
                     (unsigned)mmap->base_addr_high,
                     (unsigned)mmap->base_addr_low,
                     (unsigned)mmap->length_high,
@@ -209,6 +210,27 @@ int page_bitmap_init(unsigned long addr)
             mem_bitmap[i] &= ~(1 << j);
         }
     }
+
+    if (CHECK_FLAG(mbi->flags, 3)) {
+        int mod_count = 0;
+        module_t* mod = (module_t*)mbi->mods_addr;
+        while (mod_count < mbi->mods_count) {
+            for (unsigned long cur_addr = mod->mod_start; cur_addr < mod->mod_end; cur_addr += PAGE_SIZE) {
+                page_bitmap_set_busy((void*)cur_addr, 0);
+                kadd_page_mapping(cur_addr, cur_addr, init_pgtbl_dir);
+            }
+            mod_count++;
+            mod++;
+        }
+    }
+
+    ITERATE_PAGES({
+        unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
+        if (cur_addr >= VIDEO_MEM && cur_addr < VIDEO_MEM_END) {
+            kadd_page_mapping(cur_addr, cur_addr, init_pgtbl_dir);
+        }
+    }, {});
+
     ITERATE_PAGES({}, {
 #ifdef DEBUG_MM
         unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
@@ -290,7 +312,6 @@ int page_table_init(pgd_t *pgd)
        if (cur_addr >= (unsigned long)&__kernel_start)
            kadd_page_mapping(cur_addr, cur_addr, pgd);
     });
-    kadd_page_mapping(VIDEO_MEM , VIDEO_MEM, pgd);
 
     return 0;
 }

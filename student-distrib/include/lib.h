@@ -10,6 +10,7 @@
 /* Macros. */
 /* Check if the bit BIT in FLAGS is set. */
 #define CHECK_FLAG(flags, bit)   ((flags) & (1 << (bit)))
+#define __unused __attribute__((unused))
 
 int32_t printf(int8_t *format, ...);
 uint32_t mprintf(char *fmt, ...);
