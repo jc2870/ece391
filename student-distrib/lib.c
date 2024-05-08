@@ -788,6 +788,7 @@ int clear_bits(int num, int n, int m)
     return result;
 }
 
+/* @usage: get [n, m] bits of num. e.g get_bits(0xff, 0, 1) = 3 */
 uint32_t get_bits(uint32_t num, int n, int m)
 {
     if (n > m || n < 0 || m >= sizeof(num) * 8) {
@@ -795,4 +796,9 @@ uint32_t get_bits(uint32_t num, int n, int m)
         return -EINVAL;
     }
     return (num & ((1ll << (m+1))-1)) >> n;
+}
+
+uint32_t get_bit(u32 num, int n)
+{
+    return get_bits(num, n, n);
 }

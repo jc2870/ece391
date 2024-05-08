@@ -2,7 +2,7 @@
 
 # syscalls = ["exit", "fork", "read", "write", "open", "close", "waitpid", "creat",
 #             "link", "unlink", "execve", "chdir", "time", "mknod", "chmod", "lchown"]
-syscalls = ["read", "write"]
+syscalls = ["exit", "fork", "read", "write", "open", "close"]
 
 
 

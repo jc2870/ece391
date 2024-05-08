@@ -1,5 +1,6 @@
 #ifndef _SCHED_H
 #define _SCHED_H
+#include "fs/vfs.h"
 #include "mm.h"
 #include "types.h"
 #include "x86_desc.h"
@@ -52,6 +53,8 @@ struct task_struct {
             struct list task_list;
             char comm[16];
             struct mm mm;
+            struct files_struct *files;
+            struct fs_struct *fs;
 
             struct regs cpu_state;
         };

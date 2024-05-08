@@ -1,5 +1,8 @@
 #include "tasks.h"
+#include "errno.h"
+#include "fs/vfs.h"
 #include "lib.h"
+#include "liballoc.h"
 #include "list.h"
 #include "timer.h"
 #include "types.h"
@@ -38,7 +41,9 @@ void __init_task(struct task_struct *task, unsigned long eip, unsigned long user
     task->state = TASK_RUNNABLE;
     task->parent = NULL;
     task->mm.pgdir = alloc_page();
-    panic_on(!task->mm.pgdir, "alloc pgdir failed");
+    task->fs = kmalloc(sizeof(struct fs_struct));
+    task->files = alloc_files_struct();
+    panic_on(!task->mm.pgdir || !task->fs || !task->files, "alloc page failed");
     /* map to kernel space */
     page_table_init(task->mm.pgdir);
 }
@@ -163,4 +168,14 @@ void new_kthread(unsigned long addr)
     task->cpu_state.esi = 0;
     task->cpu_state.edi = 0;
     task->cpu_state.ebp = 0;
+}
+
+int sys_fork()
+{
+    return -EOPNOTSUPP;
+}
+
+int sys_exit(int err)
+{
+    return -EOPNOTSUPP;
 }

@@ -11,6 +11,7 @@
 /* Check if the bit BIT in FLAGS is set. */
 #define CHECK_FLAG(flags, bit)   ((flags) & (1 << (bit)))
 #define __unused __attribute__((unused))
+#define __always_inline __attribute__((always_inline))
 
 int32_t printf(int8_t *format, ...);
 uint32_t mprintf(char *fmt, ...);
@@ -249,8 +250,47 @@ static inline void io_delay(void)
     outb(0, 0x80);
 }
 
+static int find_first_set_bit(u32 n)
+{
+    int ret = 0;
+    if (n == 0) {
+        return 0xff;
+    }
+    asm volatile ("bsf %0, %1":"=r"(ret) :"r"(n));
+    return ret;
+}
 
-static inline void outb_d(uint8_t val, uint16_t port)
+static int find_last_set_bit(u32 n)
+{
+    int ret = 0;
+    if (n == 0) {
+        return 0xff;
+    }
+    asm volatile ("bsr %0, %1":"=r"(ret) :"r"(n));
+    return ret;
+}
+
+static __unused int find_first_free_bit(u32 n)
+{
+    return find_first_set_bit(!n);
+}
+
+static __unused int find_last_free_bit(u32 n)
+{
+    return find_last_set_bit(!n);
+}
+
+static __unused void set_bit(int *num, int n)
+{
+    *num |= (1 << n);
+}
+
+static __unused void clear_bit(int *num, int n)
+{
+    *num &= ~(1 << n);
+}
+
+static inline void __unused outb_d(uint8_t val, uint16_t port)
 {
     outb(val, port);
     io_delay();

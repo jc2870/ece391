@@ -2,6 +2,7 @@
 #define _VFS_H
 #include "mm.h"
 #include "types.h"
+#include "mutex.h"
 
 #define DEFAULT_MAX_FD 32
 #define BLOCK_SIZE 4096
@@ -14,11 +15,12 @@ struct fs_struct {
     struct inode *root;
 };
 
-struct file_struct {
-    struct file *fd_array;
+struct files_struct {
+    struct file **fd_array;
     u32 nr_openfd;
     u32 max_fd;
     u32 *fd_bitmap;
+    struct mutex mutex;
 };
 
 struct inode_operations {
@@ -48,4 +50,5 @@ struct file_operations {
 	ssize_t (*write) (struct file *file, const char __user *buf, size_t size, u32 *offset);
 };
 
+extern struct files_struct * alloc_files_struct();
 #endif
