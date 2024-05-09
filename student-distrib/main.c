@@ -3,6 +3,7 @@
  */
 
 #include "intr.h"
+#include "list.h"
 #include "mouse.h"
 #include "multiboot.h"
 #include "x86_desc.h"
@@ -118,6 +119,7 @@ void entry(unsigned long magic, unsigned long addr)
         task->pid = 0;
 
         task->cpu_state.esp0 = STACK_BOTTOM;
+        INIT_LIST(&task->task_list);
     }
 
     if (launch_tests() == false)
@@ -126,6 +128,7 @@ void entry(unsigned long magic, unsigned long addr)
     enable_paging();
     init_tasks();
     enable_irq(PIC_TIMER_INTR);
+#define TEST_TASKS
 #ifdef TEST_TASKS
     init_test_tasks();
     test_tasks();

@@ -18,5 +18,5 @@ typedef int (*syscall_fn_ptr)();
 	extern int sys_close();
 
 	syscall_fn_ptr syscall_table[] = {sys_exit,sys_fork,sys_read,sys_write,sys_open,sys_close,};
-
+	int nr_syscalls = sizeof(syscall_table)/sizeof(syscall_table[0]);
 #endif

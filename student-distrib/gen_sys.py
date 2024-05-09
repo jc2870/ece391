@@ -25,6 +25,8 @@ with open("syscall.h", "w+") as sys_f:
         sys_f.write("sys_{},".format(syscall))
     sys_f.write("};\n")
 
+    sys_f.write("\tint nr_syscalls = sizeof(syscall_table)/sizeof(syscall_table[0]);")
+
     sys_f.write("\n")
     sys_f.write("#endif")
 

@@ -1,11 +1,16 @@
 #ifndef _VFS_H
 #define _VFS_H
 #include "mm.h"
+#include "tasks.h"
 #include "types.h"
 #include "mutex.h"
 
 #define DEFAULT_MAX_FD 32
 #define BLOCK_SIZE 4096
+
+#define STD_IN  0
+#define STD_OUT 1
+#define STD_ERR 2
 
 struct file;
 struct inode;
@@ -41,6 +46,7 @@ struct inode {
 
 struct file {
     struct file_operations *f_ops;
+    u32 f_fd;
 };
 
 struct file_operations {
@@ -50,5 +56,8 @@ struct file_operations {
 	ssize_t (*write) (struct file *file, const char __user *buf, size_t size, u32 *offset);
 };
 
-extern struct files_struct * alloc_files_struct();
+extern void alloc_files_struct(struct task_struct *task);
+extern void destroy_files_struct(struct task_struct *task);
+
+extern void clear_opened_files(struct task_struct *task);
 #endif

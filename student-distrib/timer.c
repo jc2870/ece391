@@ -49,8 +49,10 @@ void schedule()
     next = list_entry(runnable_tasks.next, struct task_struct, task_list);
 
     list_del(&cur->task_list);
-    list_add_tail(&runnable_tasks, &cur->task_list);
-    cur->state = TASK_RUNNABLE;
+    if (!cur->exited) {
+        list_add_tail(&runnable_tasks, &cur->task_list);
+        cur->state = TASK_RUNNABLE;
+    }
     list_del(&next->task_list);
     list_add_tail(&running_tasks, &next->task_list);
     next->state = TASK_RUNNING;

@@ -6,6 +6,9 @@
 #include "tasks.h"
 #include "types.h"
 
+static int get_fd(struct task_struct *task);
+static void put_fd(struct task_struct *task, int fd);
+
 static int dummy_open(struct inode *inode, struct file* f)
 {
     return -EOPNOTSUPP;
@@ -26,41 +29,91 @@ ssize_t dummy_write(struct file *file, const char __user *buf, size_t size, u32 
     return -EOPNOTSUPP;
 }
 
+ssize_t generic_write(struct file *file, const char __user *buf, size_t size, u32 *offset)
+{
+    if (file->f_fd != 1) {
+        return -EOPNOTSUPP;
+    }
+
+    return printf("%s", buf);
+}
+
 struct file_operations dummy_file_operations = {
     .open    = dummy_open,
     .release = dummy_release,
     .read = dummy_read,
     .write = dummy_write,
 };
+struct file_operations generic_file_operations = {
+    .open    = dummy_open,
+    .release = dummy_release,
+    .read = dummy_read,
+    .write = generic_write,
+};
 
-struct files_struct * alloc_files_struct()
+void set_builtin_fd(struct task_struct *task)
+{
+    int fd;
+    struct files_struct *files = task->files;
+
+    fd = get_fd(task);
+    panic_on(fd != 0, "fd should be 0, but %d\n", fd);
+    fd = get_fd(task);
+    panic_on(fd != 1, "fd should be 1, but %d\n", fd);
+    fd = get_fd(task);
+    panic_on(fd != 2, "fd should be 2, but %d\n", fd);
+
+    panic_on(files->fd_bitmap[0] != 0x7, "set builtin fd error\n");
+}
+
+void alloc_files_struct(struct task_struct *task)
 {
     struct files_struct *files = kmalloc(sizeof(struct files_struct));
-    if (!files) {
-        return NULL;
-    }
+    panic_on(!files, "alloc files failed\n");
 
     files->max_fd = DEFAULT_MAX_FD;
     files->fd_array = kmalloc(sizeof(void*) * files->max_fd);
     files->fd_bitmap = kmalloc(files->max_fd/8);
     files->nr_openfd = 0;
+    files->fd_bitmap[0] = 0;
+    memset(files->fd_array, 0, sizeof(void*)*files->max_fd);
     mutex_init(&files->mutex);
+    task->files = files;
 
     if (!files->fd_bitmap || !files->fd_array) {
         kfree(files->fd_array);
         kfree(files->fd_bitmap);
         kfree(files);
-        return NULL;
     }
+    set_builtin_fd(task);
+}
 
-    return files;
+void clear_opened_files(struct task_struct *task)
+{
+    int fd;
+
+    while (1) {
+        fd = find_first_set_bit(task->files->fd_bitmap[0]);
+        if (fd == 0xff) {
+            break;
+        }
+        put_fd(task, fd);
+    }
+}
+
+void destroy_files_struct(struct task_struct *task)
+{
+    kfree(task->files->fd_array);
+    kfree(task->files->fd_bitmap);
+    kfree(task->files);
+    task->files = NULL;
 }
 
 static struct file* alloc_file()
 {
     struct file *f = kmalloc(sizeof(struct file));
     panic_on(!f, "alloc file failed\n");
-    f->f_ops = &dummy_file_operations;
+    f->f_ops = &generic_file_operations;
 
     return f;
 }
@@ -70,9 +123,9 @@ static void destroy_file(struct file *f)
     kfree(f);
 }
 
-static int get_fd()
+static int get_fd(struct task_struct *task)
 {
-    struct files_struct *cur_files = current()->files;
+    struct files_struct *cur_files = task->files;
     struct file *f;
     int fd;
     int bitmap;
@@ -87,6 +140,7 @@ static int get_fd()
 
     fd = find_first_free_bit(bitmap);
     panic_on(fd == 0xff, "unexpected here, bitmap is 0x%lx\n", bitmap);
+    panic_on(fd >= DEFAULT_MAX_FD, "invalid fd:%d\n", fd);
     set_bit(&bitmap, fd);
     cur_files->fd_bitmap[0] = bitmap;
     cur_files->nr_openfd++;
@@ -94,6 +148,7 @@ static int get_fd()
     f = cur_files->fd_array[fd];
     panic_on(f, "try to alloc already alloced file\n");
     f = alloc_file();
+    f->f_fd = fd;
     cur_files->fd_array[fd] = f;
 
 out:
@@ -101,12 +156,13 @@ out:
     return fd;
 }
 
-static void put_fd(int fd)
+static void put_fd(struct task_struct *task, int fd)
 {
     int bitmap;
-    struct files_struct *cur_files = current()->files;
+    struct files_struct *cur_files = task->files;
     struct file *f;
 
+    panic_on(fd >= DEFAULT_MAX_FD, "invalid fd:%d\n", fd);
     mutex_lock(&cur_files->mutex);
 
     bitmap = cur_files->fd_bitmap[0];
@@ -126,14 +182,14 @@ static void put_fd(int fd)
 
 int sys_open(const char *path)
 {
-    int fd = get_fd();
+    int fd = get_fd(current());
 
     return fd;
 }
 
 int sys_close(int fd)
 {
-    put_fd(fd);
+    put_fd(current(), fd);
     return 0;
 }
 
@@ -177,6 +233,10 @@ int sys_write(int fd, const char __user *buf, size_t count)
 {
     struct file *f = NULL;
     ssize_t ret = check_fd(fd);
+    struct files_struct *files = current()->files;
+    mutex_lock(&files->mutex);
+    f = current()->files->fd_array[fd];
+    mutex_unlock(&files->mutex);
 
     if (ret) {
         goto out;

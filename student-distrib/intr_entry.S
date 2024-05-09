@@ -7,7 +7,7 @@
 .section .text
 
 .global ignore_intr,intr_num, init_pgtbl_dir, common_iret
-.global generic_intr_handler, syscall_interrupt_entry, timer_interrupt_entry, first_return_to_user
+.global generic_intr_handler, syscall_entry, timer_interrupt_entry, first_return_to_user
 
 # reference chapter 6.12.1 (Exception- or Interrupt-Handler Procedures) volume 3 intel manual
 # After interruption or exception happened, there are 2 circumstances
@@ -101,22 +101,26 @@ MAKE_INTR_ENTRY_WITHOUT_ERRCODE PIC_PRINTER_INTR
 MAKE_INTR_ENTRY_WITHOUT_ERRCODE PIC_RTC_INTR
 MAKE_INTR_ENTRY_WITHOUT_ERRCODE PIC_MOUSE_INTR
 
-syscall_interrupt_entry:
+syscall_entry:
     pusha
     pushl %ds
     pushl %es
     pushl %fs
     pushl %gs
+    cmpl nr_syscalls, %eax
+    jge syscall_err
     cld
-    pushl %esp
     pushl %edx
     pushl %ecx
     pushl %ebx
-    pushl %eax
-    call syscall_handler
-    # The above call instruction will overwrite esp regesiter, so we need restore esp using eax
-    movl %eax, %esp
+    call *syscall_table(,%eax,4)
+    popl %ebx
+    popl %ecx
+    popl %edx
 
+    jmp common_iret
+syscall_err:
+    mov $-1, %eax
     jmp common_iret
 
 timer_interrupt_entry:

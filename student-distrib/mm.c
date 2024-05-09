@@ -313,6 +313,12 @@ int page_table_init(pgd_t *pgd)
            kadd_page_mapping(cur_addr, cur_addr, pgd);
     });
 
+    ITERATE_PAGES({}, {
+       unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
+       if (cur_addr >= VIDEO_MEM && cur_addr < VIDEO_MEM_END)
+           kadd_page_mapping(cur_addr, cur_addr, pgd);
+    });
+
     return 0;
 }
 
@@ -644,14 +650,14 @@ void free_page(void *addr)
  */
 void page_fault_handler(unsigned long addr, unsigned long errno)
 {
-    // bool page_present = !(errno & (1 << 0));
-    // bool op_write = errno & (1 << 1);
+    bool page_present = !(errno & (1 << 0));
+    bool op_write = errno & (1 << 1);
     bool from_user = errno & (1 << 2);
 
     // KERN_INFO("page fault occured addr: 0x%x\n", addr);
     panic_on(!addr, "null ptr referenced occured");
     if (!from_user) {
-        kadd_page_mapping(addr, addr, init_pgtbl_dir);
+        kadd_page_mapping(addr, addr, current()->mm.pgdir);
     } else {
         struct task_struct *cur = current();
         pgd_t *pgd = cur->mm.pgdir;

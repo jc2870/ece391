@@ -42,7 +42,8 @@ void __init_task(struct task_struct *task, unsigned long eip, unsigned long user
     task->parent = NULL;
     task->mm.pgdir = alloc_page();
     task->fs = kmalloc(sizeof(struct fs_struct));
-    task->files = alloc_files_struct();
+    task->exited = false;
+    alloc_files_struct(task);
     panic_on(!task->mm.pgdir || !task->fs || !task->files, "alloc page failed");
     /* map to kernel space */
     page_table_init(task->mm.pgdir);
@@ -177,5 +178,13 @@ int sys_fork()
 
 int sys_exit(int err)
 {
-    return -EOPNOTSUPP;
+    cli();
+    struct task_struct *cur = current();
+    cur->exited = true;
+    sti();
+    clear_opened_files(cur);
+    destroy_files_struct(cur);
+    schedule();
+
+    return 0;
 }

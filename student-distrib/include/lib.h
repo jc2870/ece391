@@ -272,12 +272,12 @@ static int find_last_set_bit(u32 n)
 
 static __unused int find_first_free_bit(u32 n)
 {
-    return find_first_set_bit(!n);
+    return find_first_set_bit(~n);
 }
 
 static __unused int find_last_free_bit(u32 n)
 {
-    return find_last_set_bit(!n);
+    return find_last_set_bit(~n);
 }
 
 static __unused void set_bit(int *num, int n)

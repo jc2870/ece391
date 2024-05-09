@@ -4,9 +4,7 @@ set pagination off
 
 b entry
 b __panic
-b init_test_tasks
-b test_tasks
-b user0
+b generic_write
 # b intr0xD_handler
 # b schedule
 # b test_tasks

@@ -10,10 +10,10 @@ void mutex_init(struct mutex *mutex)
 
 void mutex_lock(struct mutex *mutex)
 {
-
+    cli();
 }
 
 void mutex_unlock(struct mutex *mutex)
 {
-
+    sti();
 }

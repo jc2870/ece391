@@ -236,7 +236,7 @@ void early_setup_idt()
     set_intr_gate(0x14, intr0x14_entry);
     set_intr_gate(0x15, intr0x15_entry);
 
-    set_system_gate(SYSCALL_INTR, syscall_interrupt_entry);
+    set_system_gate(SYSCALL_INTR, syscall_entry);
     set_intr_gate(PIC_TIMER_INTR, timer_interrupt_entry);
     set_intr_gate(PIC_HARDISK_INTR, intr0x3E_entry);
 
