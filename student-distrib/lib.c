@@ -3,6 +3,7 @@
 
 #include "lib.h"
 #include "errno.h"
+#include "liballoc.h"
 #include "vga.h"
 #include "stdarg.h"
 #include "serial.h"
@@ -801,4 +802,13 @@ uint32_t get_bits(uint32_t num, int n, int m)
 uint32_t get_bit(u32 num, int n)
 {
     return get_bits(num, n, n);
+}
+
+char *kstrdup(const char *src)
+{
+    char *dst = kmalloc(strlen(src));
+    panic_on(!dst, "alloc string failed\n");
+    strcpy(dst, src);
+
+    return dst;
 }

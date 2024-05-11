@@ -1,37 +1,43 @@
 #include "errno.h"
-#include "fs/vfs.h"
+#include "vfs.h"
 #include "lib.h"
 #include "liballoc.h"
 #include "mutex.h"
 #include "tasks.h"
 #include "types.h"
 
-static int get_fd(struct task_struct *task);
+static int get_fd(struct task_struct *task, const char *path);
 static void put_fd(struct task_struct *task, int fd);
+extern struct file_operations serial_file_operations;
 
 static int dummy_open(struct inode *inode, struct file* f)
 {
+    printf("unsupported syscall %s\n", __func__);
     return -EOPNOTSUPP;
 }
 
 static int dummy_release(struct inode *inode, struct file* f)
 {
+    printf("unsupported syscall %s\n", __func__);
     return -EOPNOTSUPP;
 }
 
 ssize_t dummy_read(struct file *file, char __user *buf, size_t size, u32 *offset)
 {
+    printf("unsupported syscall %s\n", __func__);
     return -EOPNOTSUPP;
 }
 
 ssize_t dummy_write(struct file *file, const char __user *buf, size_t size, u32 *offset)
 {
+    printf("unsupported syscall %s\n", __func__);
     return -EOPNOTSUPP;
 }
 
 ssize_t generic_write(struct file *file, const char __user *buf, size_t size, u32 *offset)
 {
     if (file->f_fd != 1) {
+        printf("unsupported write to fd %d\n", file->f_fd);
         return -EOPNOTSUPP;
     }
 
@@ -44,6 +50,7 @@ struct file_operations dummy_file_operations = {
     .read = dummy_read,
     .write = dummy_write,
 };
+
 struct file_operations generic_file_operations = {
     .open    = dummy_open,
     .release = dummy_release,
@@ -56,11 +63,11 @@ void set_builtin_fd(struct task_struct *task)
     int fd;
     struct files_struct *files = task->files;
 
-    fd = get_fd(task);
+    fd = get_fd(task, "stdin");
     panic_on(fd != 0, "fd should be 0, but %d\n", fd);
-    fd = get_fd(task);
+    fd = get_fd(task, "stdout");
     panic_on(fd != 1, "fd should be 1, but %d\n", fd);
-    fd = get_fd(task);
+    fd = get_fd(task, "stderr");
     panic_on(fd != 2, "fd should be 2, but %d\n", fd);
 
     panic_on(files->fd_bitmap[0] != 0x7, "set builtin fd error\n");
@@ -109,21 +116,30 @@ void destroy_files_struct(struct task_struct *task)
     task->files = NULL;
 }
 
-static struct file* alloc_file()
+struct inode* get_inode_from_path(const char *path)
+{
+    return NULL;
+}
+
+static struct file* alloc_file(const char *path)
 {
     struct file *f = kmalloc(sizeof(struct file));
     panic_on(!f, "alloc file failed\n");
-    f->f_ops = &generic_file_operations;
+    f->f_ops = &serial_file_operations;
+    f->f_path = kstrdup(path);
+    f->f_inode = get_inode_from_path(path);
+    // f->f_ops = f->f_inode->i_fops;
 
     return f;
 }
 
 static void destroy_file(struct file *f)
 {
+    kfree(f->f_path);
     kfree(f);
 }
 
-static int get_fd(struct task_struct *task)
+static int get_fd(struct task_struct *task, const char *path)
 {
     struct files_struct *cur_files = task->files;
     struct file *f;
@@ -147,7 +163,7 @@ static int get_fd(struct task_struct *task)
 
     f = cur_files->fd_array[fd];
     panic_on(f, "try to alloc already alloced file\n");
-    f = alloc_file();
+    f = alloc_file(path);
     f->f_fd = fd;
     cur_files->fd_array[fd] = f;
 
@@ -180,9 +196,25 @@ static void put_fd(struct task_struct *task, int fd)
     mutex_unlock(&cur_files->mutex);
 }
 
+struct file* get_file(int fd, struct files_struct *files)
+{
+    struct file *f = NULL;
+
+    mutex_lock(&files->mutex);
+    f = files->fd_array[fd];
+    mutex_unlock(&files->mutex);
+
+    return f;
+}
+
 int sys_open(const char *path)
 {
-    int fd = get_fd(current());
+    struct file *f = NULL;
+    int fd = get_fd(current(), path);
+    f = get_file(fd, current()->files);
+    if (f->f_inode) {
+        f->f_inode->i_fops->open(f->f_inode, f);
+    }
 
     return fd;
 }
@@ -218,6 +250,10 @@ ssize_t sys_read(int fd, char __user *buf, size_t count)
 {
     struct file *f = NULL;
     ssize_t ret = check_fd(fd);
+    struct files_struct *files = current()->files;
+    mutex_lock(&files->mutex);
+    f = current()->files->fd_array[fd];
+    mutex_unlock(&files->mutex);
 
     if (ret) {
         goto out;

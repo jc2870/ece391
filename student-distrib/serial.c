@@ -2,6 +2,8 @@
 #include "lib.h"
 #include "i8259.h"
 #include "intr.h"
+#include "errno.h"
+#include "vfs.h"
 
 static int uart = 0;
 void uartputc(int c);
@@ -58,8 +60,12 @@ int uartgetc(void)
 {
   if(!uart)
     return -1;
-  if(!(inb(COMS1+5) & 0x01))
-    return -1;
+  while (1) {
+    if (inb(COMS1+5) & 0x01) {
+        break;
+    }
+  }
+
   return inb(COMS1+0);
 }
 
@@ -79,3 +85,46 @@ void intr0x34_handler()
         printf("%c", c);
     }
 }
+
+int uartgets(char __user *buf, size_t size)
+{
+    int c;
+    int ret = 0;
+    while (1) {
+        c = uartgetc();
+        buf[ret] = c;
+        ret++;
+
+        if (c == '\n') {
+            break;
+        }
+
+        if (ret == size) {
+            break;
+        }
+    }
+
+    return ret;
+}
+
+ssize_t serial_read(struct file *file, char __user *buf, size_t size, u32 *offset)
+{
+    return uartgets(buf, size);
+}
+
+ssize_t serial_write(struct file *file, const char __user *buf, size_t size, u32 *offset)
+{
+    if (file->f_fd != 1) {
+        printf("unsupported write to fd %d\n", file->f_fd);
+        return -EOPNOTSUPP;
+    }
+
+    return printf("%s", buf);
+}
+
+struct file_operations serial_file_operations = {
+    .open    = NULL,
+    .release = NULL,
+    .read = serial_read,
+    .write = serial_write,
+};

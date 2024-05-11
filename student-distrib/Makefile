@@ -4,7 +4,7 @@
 
 
 # Flags to use when compiling, preprocessing, assembling, and linking
-CFLAGS+=-Wall -fno-builtin -fno-stack-protector -nostdlib -Wno-char-subscripts -Wno-attributes
+CFLAGS+=-Wall -fno-builtin -fno-stack-protector -nostdlib -Wno-char-subscripts -Wno-attributes # -pg -mrecord-mcount don't support these two options yet
 ASFLAGS+=
 LDFLAGS+=-nostdlib -static -m32
 CC=gcc

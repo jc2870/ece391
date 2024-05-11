@@ -294,7 +294,7 @@ int uadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd) {
     return __add_page_mapping(linear_addr, phy_addr, pgd, 1);
 }
 
-int page_table_init(pgd_t *pgd)
+int page_table_init(pgd_t *pgd, bool user)
 {
     /* A pgd_t pointer points to a page, which contains 1024 pde_t */
     // init_pgtbl_dir = alloc_pgdir();
@@ -310,16 +310,38 @@ int page_table_init(pgd_t *pgd)
     ITERATE_PAGES({}, {
        unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
        if (cur_addr >= (unsigned long)&__kernel_start)
-           kadd_page_mapping(cur_addr, cur_addr, pgd);
+           __add_page_mapping(cur_addr, cur_addr, pgd, user);
     });
 
     ITERATE_PAGES({}, {
        unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
        if (cur_addr >= VIDEO_MEM && cur_addr < VIDEO_MEM_END)
-           kadd_page_mapping(cur_addr, cur_addr, pgd);
+           __add_page_mapping(cur_addr, cur_addr, pgd, user);
     });
 
     return 0;
+}
+
+int kpgtbl_init(pgd_t *pgd)
+{
+    return page_table_init(pgd, 0);
+}
+
+int upgtbl_init(pgd_t *pgd)
+{
+    /* @fixme: bug here.  */
+    return page_table_init(pgd, 1);
+    // u32 cur_addr = (u32)&__kernel_start;
+    // while (cur_addr < (u32)&__kernel_end) {
+    //     uadd_page_mapping(cur_addr, cur_addr, pgd);
+    //     cur_addr += PAGE_SIZE;
+    // }
+    // cur_addr = VIDEO_MEM;
+    // while (cur_addr < VIDEO_MEM_END) {
+    //     uadd_page_mapping(cur_addr, cur_addr, pgd);
+    //     cur_addr += PAGE_SIZE;
+    // }
+    // return 0;
 }
 
 /*
@@ -488,7 +510,7 @@ int init_paging(unsigned long addr)
 
     init_pgtbl_dir = alloc_pgdir();
     panic_on(!init_pgtbl_dir, "alloc pgtable failed\n");
-    if ((ret = page_table_init(init_pgtbl_dir)))
+    if ((ret = kpgtbl_init(init_pgtbl_dir)))
         return ret;
     clear();
     mm_show_statistics(NULL);
@@ -697,4 +719,29 @@ void* liballoc_alloc(size_t order)
 void liballoc_free(void *addr, size_t order)
 {
     free_pages(addr, order);
+}
+
+void init_task_mm(struct task_struct *task, Elf32_Ehdr *header)
+{
+    Elf32_Phdr *pheader = (Elf32_Phdr *)((char *)header + header->e_phoff);
+    u32 psize = header->e_phentsize;
+    int i = 0;
+    void *stack = NULL;
+
+    stack = alloc_page();
+    panic_on(!stack, "alloc stack failed\n");
+    uadd_page_mapping(task->cpu_state.esp - PAGE_SIZE, (u32)stack, task->mm.pgdir);
+
+    for (i = 0; i < header->e_phnum; ++i) {
+        int msize = pheader->p_memsz;
+        printf("vaddr: 0x%x paddr: 0x%x: flag:0x%x\n",
+            pheader->p_vaddr, pheader->p_paddr, pheader->p_flags);
+
+        while (msize > 0) {
+            u32 paddr = (u32)((u8*)header + pheader->p_offset);
+            uadd_page_mapping(pheader->p_vaddr & ~PAGE_MASK, paddr & ~PAGE_MASK, task->mm.pgdir);
+            msize -= PAGE_SIZE;
+        }
+        pheader = (Elf32_Phdr*)((char*)pheader + psize);
+    }
 }

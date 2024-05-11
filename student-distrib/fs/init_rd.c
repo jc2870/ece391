@@ -1,10 +1,16 @@
 #include "init_rd.h"
+#include "errno.h"
 #include "liballoc.h"
 #include "lib.h"
+#include "mm.h"
+#include "vfs.h"
+#include "elf.h"
 
 #define INITRD_FS_MOD "/filesys_img"
 
 static struct initrd_fs_mod *fs = NULL;
+struct file_operations initrd_file_operations;
+struct file_operations initrd_dir_operations;
 
 module_t *get_fs_mod(multiboot_info_t *mbi)
 {
@@ -104,9 +110,9 @@ s32 __read_data_by_ino(u32 ino, u32 offset, char *buf, u32 len)
     int block = 0;
 
     inode = &fs->inodes[ino];
-    nr_blocks = inode->size/BLOCK_SIZE;
-    nr_bytes  = inode->size % BLOCK_SIZE;
     len = len < inode->size ? len : inode->size;
+    nr_blocks = len/BLOCK_SIZE;
+    nr_bytes  = len%BLOCK_SIZE;
 
     for (i = 0; i < nr_blocks; ++i) {
         block = inode->data_blocks[i];
@@ -147,3 +153,32 @@ s32 read_data_by_name(const char *fname, u32 offset, char *buf, u32 len)
     read_dentry_by_name(fname, &d);
     return __read_data_by_ino(d.inode, offset, buf, len);
 }
+
+int initrd_open(struct inode *inode, struct file *file)
+{
+    return 0;
+}
+
+int initrd_release(struct inode *inode, struct file *file)
+{
+    file->f_ops = NULL;
+    return 0;
+}
+
+ssize_t initrd_read(struct file *file, char __user *buf, size_t size, u32 *offset)
+{
+    return read_data(file->f_inode->i_no, *offset, (char*)buf, size);
+}
+
+ssize_t initrd_write(struct file *file, const char __user *buf, size_t size, u32 *offset)
+{
+    /* initrd is read only */
+    return -EOPNOTSUPP;
+}
+
+struct file_operations initrd_file_operations = {
+    .open    = initrd_open,
+    .release = initrd_release,
+    .read    = initrd_read,
+    .write   = initrd_write,
+};

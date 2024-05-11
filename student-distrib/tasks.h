@@ -1,10 +1,12 @@
 #ifndef _SCHED_H
 #define _SCHED_H
+#include "elf.h"
 #include "mm.h"
 #include "types.h"
 #include "x86_desc.h"
 
 #define STACK_SIZE (2*PAGE_SIZE)
+#define USER_STACK 0x09000000
 
 struct regs {
     uint32_t eax;
@@ -70,6 +72,7 @@ static inline struct task_struct* current()
 extern void test_tasks();
 extern void init_test_tasks();
 extern void init_tasks();
+extern void init_user_task(Elf32_Ehdr *header, const char *name);
 
 extern struct list running_tasks;
 extern struct list runnable_tasks;  // waiting for time slice

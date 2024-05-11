@@ -10,8 +10,11 @@
 /* Macros. */
 /* Check if the bit BIT in FLAGS is set. */
 #define CHECK_FLAG(flags, bit)   ((flags) & (1 << (bit)))
-#define __unused __attribute__((unused))
-#define __always_inline __attribute__((always_inline))
+#define __unused                __attribute__((unused))
+#define __always_inline         __attribute__((always_inline))
+#define __patchable_func_entry  __attribute__((patchable_function_entry(5)))
+#define __section(name)         __attribute__((section(name)))
+#define __weak(name)            __attribute__((weak))
 
 int32_t printf(int8_t *format, ...);
 uint32_t mprintf(char *fmt, ...);
@@ -62,6 +65,7 @@ int memcmp(const void *s1, const void *s2, size_t n);
 int32_t strncmp(const int8_t* s1, const int8_t* s2, uint32_t n);
 int8_t* strcpy(int8_t* dest, const int8_t*src);
 int8_t* strncpy(int8_t* dest, const int8_t*src, uint32_t n);
+char *kstrdup(const char *src);
 
 /* Userspace address-check functions */
 int32_t bad_userspace_addr(const void* addr, int32_t len);

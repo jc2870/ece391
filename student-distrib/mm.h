@@ -5,6 +5,7 @@
 #include "types.h"
 #include "list.h"
 #include "liballoc.h"
+#include "elf.h"
 
 #define PAGE_SIZE 4096
 #define PAGE_MASK (PAGE_SIZE-1)
@@ -12,6 +13,8 @@
 #define SLOTS 4096*4
 #define _MAX_ORDER 10
 #define MAX_ORDER (_MAX_ORDER+1)    // max free list is 4M(4K * 2^10)
+
+struct task_struct;
 
 extern int init_paging(unsigned long addr);
 extern void enable_paging();
@@ -48,6 +51,7 @@ struct mm {
 extern int kadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd);
 extern int uadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd);
 
-extern int page_table_init(pgd_t *pgd);
+extern int upgtbl_init(pgd_t *pgd);
+extern void init_task_mm(struct task_struct *task, Elf32_Ehdr *header);
 
 #endif

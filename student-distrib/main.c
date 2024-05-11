@@ -112,21 +112,11 @@ void entry(unsigned long magic, unsigned long addr)
         panic("paging init failed\n");
         return;
     }
-    {
-        struct task_struct *task = (struct task_struct*)INIT_TASK;
-        strcpy(task->comm, "init");
-        task->mm.pgdir = init_pgtbl_dir;
-        task->pid = 0;
-
-        task->cpu_state.esp0 = STACK_BOTTOM;
-        INIT_LIST(&task->task_list);
-    }
-
     if (launch_tests() == false)
         panic("test failed\n");
 
-    enable_paging();
     init_tasks();
+    enable_paging();
     enable_irq(PIC_TIMER_INTR);
 #define TEST_TASKS
 #ifdef TEST_TASKS
@@ -138,13 +128,16 @@ void entry(unsigned long magic, unsigned long addr)
 #define TEST_FS
 #ifdef TEST_FS
     {
-        char *data = alloc_page();
+        char *data = alloc_pages(1);
+        const char *shell = "shell";
 
         clear();
-        read_data_by_name("frame0.txt", 0, data, BLOCK_SIZE);
+        read_data_by_name("frame0.txt", 0, data, ALL_FILE);
         printf("%s\n", data);
-        read_data_by_name("frame1.txt", 0, data, BLOCK_SIZE);
+        read_data_by_name("frame1.txt", 0, data, ALL_FILE);
         printf("%s\n", data);
+        read_data_by_name(shell, 0, data, ALL_FILE);
+        init_user_task((void*)data, shell);
     }
     clear();
 #endif
@@ -174,4 +167,10 @@ void entry(unsigned long magic, unsigned long addr)
 
     /* Spin (nicely, so we don't chew up cycles) */
     // asm volatile (".1: hlt; jmp .1;");
+}
+
+
+int sys_setup()
+{
+
 }

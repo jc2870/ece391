@@ -1,6 +1,7 @@
 #include "tasks.h"
+#include "elf.h"
 #include "errno.h"
-#include "fs/vfs.h"
+#include "vfs.h"
 #include "lib.h"
 #include "liballoc.h"
 #include "list.h"
@@ -46,7 +47,7 @@ void __init_task(struct task_struct *task, unsigned long eip, unsigned long user
     alloc_files_struct(task);
     panic_on(!task->mm.pgdir || !task->fs || !task->files, "alloc page failed");
     /* map to kernel space */
-    page_table_init(task->mm.pgdir);
+    upgtbl_init(task->mm.pgdir);
 }
 
 void init_task(struct task_struct *task, unsigned long eip, unsigned long user_stack, unsigned long kernel_stack)
@@ -66,7 +67,6 @@ void init_task(struct task_struct *task, unsigned long eip, unsigned long user_s
     /* push eip/esp that iret needed, see first_return_to_user */
     kernel_stk[0] = eip;
     kernel_stk[1] = user_stack;
-    list_add_tail(&runnable_tasks, &task->task_list);
 }
 
 static struct task_struct* alloc_task()
@@ -81,18 +81,16 @@ static struct task_struct* alloc_task()
 
 void init_tasks()
 {
-    INIT_LIST(&runnable_tasks);
-    INIT_LIST(&waiting_tasks);
-    INIT_LIST(&running_tasks);
-}
-
-void init_test_tasks()
-{
-    /* Construct a TSS entry in the GDT */
+    struct task_struct *init_task = (struct task_struct*)INIT_TASK;
     seg_desc_t the_tss_desc = {0};
-    // struct task_struct *task0 = NULL;
-    // struct task_struct *task1 = NULL;
-    // struct task_struct *task2 = NULL;
+
+    strcpy(init_task->comm, "init");
+    init_task->mm.pgdir = init_pgtbl_dir;
+    init_task->pid = 0;
+
+    init_task->cpu_state.esp0 = STACK_BOTTOM;
+    INIT_LIST(&init_task->task_list);
+    /* Construct a TSS entry in the GDT */
 
     the_tss_desc.granularity   = 0x0;
     the_tss_desc.opsize        = 0x0;
@@ -108,17 +106,26 @@ void init_test_tasks()
     SET_TSS_PARAMS(the_tss_desc, &tss, tss_size);
     tss_desc_ptr = the_tss_desc;
 
-    task0 = alloc_task();
-    task1 = alloc_task();
-    task2 = alloc_task();
-    if (!task0 || !task1 || !task2) {
-        panic("alloc task failed\n");
-    }
-
-    tss.esp0 = (unsigned long)(((char*)task0) + STACK_SIZE);  // stack top
+    tss.esp0 = (unsigned long)STACK_BOTTOM;  // stack top
     tss.ss0 = KERNEL_DS;
     tss.cs = KERNEL_CS;
     ltr(KERNEL_TSS);
+    tss.cr3 = (unsigned long)init_pgtbl_dir;
+
+    INIT_LIST(&runnable_tasks);
+    INIT_LIST(&waiting_tasks);
+    INIT_LIST(&running_tasks);
+}
+
+void init_test_tasks()
+{
+    task0 = alloc_task();
+    task1 = alloc_task();
+    task2 = alloc_task();
+
+    if (!task0 || !task1 || !task2) {
+        panic("alloc task failed\n");
+    }
     init_task(task0, (unsigned long)user0, (unsigned long)&user_stk0, (unsigned long)(((char*)task0) + STACK_SIZE));
     init_task(task1, (unsigned long)user1, (unsigned long)&user_stk1, (unsigned long)(((char*)task1) + STACK_SIZE));
     init_task(task2, (unsigned long)user2, (unsigned long)&user_stk2, (unsigned long)(((char*)task2) + STACK_SIZE));
@@ -126,12 +133,26 @@ void init_test_tasks()
     strcpy(task0->comm, "user0");
     strcpy(task1->comm, "user1");
     strcpy(task2->comm, "user2");
-    // uadd_page_mapping((uint32_t)user0 & ~PAGE_MASK, (uint32_t)user0 & ~PAGE_MASK, task0->mm.pgdir);
-    // uadd_page_mapping((uint32_t)user1 & ~PAGE_MASK, (uint32_t)user1 & ~PAGE_MASK, task1->mm.pgdir);
-    // uadd_page_mapping((uint32_t)user2 & ~PAGE_MASK, (uint32_t)user2 & ~PAGE_MASK, task2->mm.pgdir);
+}
 
-    tss.cr3 = (unsigned long)init_pgtbl_dir;
-    // list_add_tail(&running_tasks, &task0->task_list);
+static __always_inline void init_user_task_finish(struct task_struct *task)
+{
+    list_add_tail(&runnable_tasks, &task->task_list);
+}
+
+void init_user_task(Elf32_Ehdr *header, const char *name)
+{
+    struct task_struct *task = NULL;
+
+    task = alloc_task();
+    if (!task) {
+        panic("alloc task failed\n");
+    }
+    init_task(task, (unsigned long)header->e_entry, USER_STACK, (unsigned long)(((char*)task) + STACK_SIZE));
+
+    strcpy(task->comm, name);
+    init_task_mm(task, header);
+    init_user_task_finish(task);
 }
 
 void test_tasks()
@@ -140,6 +161,9 @@ void test_tasks()
     panic_on(!task1->mm.pgdir, "unexpected task1 pgdir\n");
     panic_on(!task2->mm.pgdir, "unexpected task2 pgdir\n");
 
+    init_user_task_finish(task0);
+    init_user_task_finish(task1);
+    init_user_task_finish(task2);
     sti();
 }
 
