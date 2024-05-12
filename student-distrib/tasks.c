@@ -2,6 +2,7 @@
 #include "atomic.h"
 #include "elf.h"
 #include "errno.h"
+#include "init_rd.h"
 #include "vfs.h"
 #include "lib.h"
 #include "liballoc.h"
@@ -213,6 +214,37 @@ void new_kthread(unsigned long addr)
     task->cpu_state.ebp = 0;
 }
 
+/* @note: only support initrd yet */
+int do_sys_execve(struct task_struct *cur, const char* path, char *const argv[], char *const envp[])
+{
+    char *buf = alloc_pages(1);
+    Elf32_Ehdr *header;
+    char *_path = kstrdup(path);
+    panic_on(!buf, "alloc failed\n");
+
+    str_trim(_path);
+    read_data_by_name(_path, 0, buf, PAGE_SIZE*2);
+    header = (Elf32_Ehdr*)buf;
+    panic_on(elf_invalid(header), "should never happen for initrd, cannot find file:%s\n", path);
+    /* @fixme: destroy all page mapped by cur */
+    init_task(cur, (unsigned long)header->e_entry, USER_STACK, (unsigned long)(((char*)cur) + STACK_SIZE));
+
+    kfree(cur->comm);
+    strcpy(cur->comm, path);
+    init_task_mm(cur, header);
+
+    kfree(_path);
+
+    return 0;
+}
+
+/* @note: only support initrd yet */
+int sys_execve(const char* path, char *const argv[], char *const envp[])
+{
+    do_sys_execve(current(), path, argv, envp);
+    return 0;
+}
+
 int sys_fork(__unused u32 ebx, __unused u32 ecx, __unused u32 edx, struct intr_regs regs)
 {
     struct task_struct *task = NULL;
@@ -223,16 +255,31 @@ int sys_fork(__unused u32 ebx, __unused u32 ecx, __unused u32 edx, struct intr_r
         panic("alloc task failed\n");
     }
 
-    printf("user esp is 0x%x\n", regs.esp);
     init_task(task, (unsigned long)regs.eip, regs.esp, (unsigned long)(((char*)task) + STACK_SIZE));
     strcpy(task->comm, cur->comm);
     copy_task_mm(task, cur);
     task->parent = cur;
+#define ECE391_SYSCALL
+#ifdef ECE391_SYSCALL
+    do_sys_execve(task, (void*)ebx, (void*)ecx, (void*)edx);
+#endif
     init_user_task_finish(task);
+    schedule();
+
+#define ECE391_SYSCALL
+#ifdef ECE391_SYSCALL
+    /* @fixme: should nerver busy loop. */
+    while (1) {
+        if (task->exited) {
+            break;
+        }
+    }
+#endif
 
     return 0;
 }
 
+/* @fixme: should free all pages. */
 int sys_exit(int err)
 {
     cli();
@@ -245,3 +292,9 @@ int sys_exit(int err)
 
     return 0;
 }
+
+int sys_waitpid()
+{
+    return -1;
+}
+

@@ -299,4 +299,7 @@ static inline void __unused outb_d(uint8_t val, uint16_t port)
     outb(val, port);
     io_delay();
 }
+
+extern void str_trim(char *str);
+
 #endif /* _LIB_H */

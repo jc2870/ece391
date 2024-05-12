@@ -1,8 +1,9 @@
 #!/bin/python3
 
-# syscalls = ["exit", "fork", "read", "write", "open", "close", "waitpid", "creat",
+# syscalls = ["setup", "exit", "fork", "read", "write", "open", "close", "waitpid", "creat",
 #             "link", "unlink", "execve", "chdir", "time", "mknod", "chmod", "lchown"]
-syscalls = ["setup","exit", "fork", "read", "write", "open", "close"]
+syscalls = ["setup", "exit", "fork", "read", "write", "open", "close", "waitpid", "creat",
+            "link", "unlink", "execve"]
 
 
 

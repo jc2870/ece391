@@ -37,8 +37,8 @@ int parse_elf_pheader(Elf32_Ehdr *header)
     int i = 0;
 
     for (i = 0; i < header->e_phnum; ++i) {
-        printf("vaddr: 0x%x paddr: 0x%x: flag:0x%x\n",
-            pheader->p_vaddr, pheader->p_paddr, pheader->p_flags);
+        // printf("vaddr: 0x%x paddr: 0x%x: flag:0x%x\n",
+        //     pheader->p_vaddr, pheader->p_paddr, pheader->p_flags);
 
         if ((pheader->p_flags & (PF_MASK)) == (PF_R|PF_X)) {
             break;

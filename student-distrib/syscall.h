@@ -10,6 +10,11 @@ typedef int (*syscall_fn_ptr)();
 	#define SYS_write		4
 	#define SYS_open		5
 	#define SYS_close		6
+	#define SYS_waitpid		7
+	#define SYS_creat		8
+	#define SYS_link		9
+	#define SYS_unlink		10
+	#define SYS_execve		11
 
 	extern int sys_setup();
 	extern int sys_exit();
@@ -18,7 +23,12 @@ typedef int (*syscall_fn_ptr)();
 	extern int sys_write();
 	extern int sys_open();
 	extern int sys_close();
+	extern int sys_waitpid();
+	extern int sys_creat();
+	extern int sys_link();
+	extern int sys_unlink();
+	extern int sys_execve();
 
-	syscall_fn_ptr syscall_table[] = {sys_setup,sys_exit,sys_fork,sys_read,sys_write,sys_open,sys_close,};
+	syscall_fn_ptr syscall_table[] = {sys_setup,sys_exit,sys_fork,sys_read,sys_write,sys_open,sys_close,sys_waitpid,sys_creat,sys_link,sys_unlink,sys_execve,};
 	int nr_syscalls = sizeof(syscall_table)/sizeof(syscall_table[0]);
 #endif

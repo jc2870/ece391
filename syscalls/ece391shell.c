@@ -17,7 +17,7 @@ int main ()
 	    ece391_fdputs (1, (uint8_t*)"read from keyboard failed\n");
 	    return 3;
 	}
-	if (cnt > 0 && '\n' == buf[cnt - 1])
+	if (cnt > 0 && ('\n' == buf[cnt - 1] || '\r' == buf[cnt-1]))
 	    cnt--;
 	buf[cnt] = '\0';
 	if (0 == ece391_strcmp (buf, (uint8_t*)"exit"))

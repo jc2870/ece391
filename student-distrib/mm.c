@@ -789,8 +789,8 @@ void init_task_mm(struct task_struct *task, Elf32_Ehdr *header)
 
     for (i = 0; i < header->e_phnum; ++i) {
         int msize = pheader->p_memsz;
-        printf("vaddr: 0x%x paddr: 0x%x: flag:0x%x\n",
-            pheader->p_vaddr, pheader->p_paddr, pheader->p_flags);
+        // printf("vaddr: 0x%x paddr: 0x%x: flag:0x%x\n",
+        //     pheader->p_vaddr, pheader->p_paddr, pheader->p_flags);
 
         while (msize > 0) {
             u32 paddr = (u32)((u8*)header + pheader->p_offset);
@@ -836,7 +836,7 @@ void copy_task_mm(struct task_struct *dst, struct task_struct *src)
             /* Set pte to readonly */
             dst_pte = src_pte & ~(1 << RW_BIT);
             if (src_pte > shell_stack && src_pte < shell_stack + PAGE_SIZE) {
-                printf("set 0x%x to readonly, shell_stack is 0x%x\n", src_pte & ~PAGE_MASK, shell_stack);
+                // printf("set 0x%x to readonly, shell_stack is 0x%x\n", src_pte & ~PAGE_MASK, shell_stack);
             }
             ((u32*)new_pde)[j] = dst_pte;
         }

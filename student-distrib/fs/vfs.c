@@ -283,3 +283,18 @@ int sys_write(int fd, const char __user *buf, size_t count)
 out:
     return ret;
 }
+
+int sys_creat()
+{
+    return -1;
+}
+
+int sys_link()
+{
+    return -1;
+}
+
+int sys_unlink()
+{
+    return -1;
+}

@@ -812,3 +812,18 @@ char *kstrdup(const char *src)
 
     return dst;
 }
+
+void str_trim(char *str)
+{
+    int len = strlen(str);
+
+    while (1) {
+        char c = str[len-1];
+        if (c == ' ' || c == '\n' || c == '\t' || c == '\r') {
+            str[len-1] = '\0';
+            len--;
+        } else {
+            break;
+        }
+    }
+}
