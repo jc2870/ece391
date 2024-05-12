@@ -14,6 +14,9 @@
 #define _MAX_ORDER 10
 #define MAX_ORDER (_MAX_ORDER+1)    // max free list is 4M(4K * 2^10)
 
+#define MAX_PDE_ENTRY (PAGE_SIZE/sizeof(void*))
+#define MAX_PTE_ENTRY MAX_PDE_ENTRY
+
 struct task_struct;
 
 extern int init_paging(unsigned long addr);
@@ -53,5 +56,6 @@ extern int uadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd
 
 extern int upgtbl_init(pgd_t *pgd);
 extern void init_task_mm(struct task_struct *task, Elf32_Ehdr *header);
+extern void copy_task_mm(struct task_struct *dst, struct task_struct *src);
 
 #endif

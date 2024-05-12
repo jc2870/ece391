@@ -1,4 +1,5 @@
 #include "tasks.h"
+#include "atomic.h"
 #include "elf.h"
 #include "errno.h"
 #include "vfs.h"
@@ -21,9 +22,13 @@ struct task_struct *task0;
 struct task_struct *task1;
 struct task_struct *task2;
 
+static struct atomic next_pid;
+
 struct list running_tasks;
 struct list runnable_tasks;  // waiting for time slice
 struct list waiting_tasks;   // waiing for io or lock or something
+
+static pid_t get_next_pid();
 
 void __init_task(struct task_struct *task, unsigned long eip, unsigned long user_stack, unsigned long kernel_stack)
 {
@@ -44,6 +49,7 @@ void __init_task(struct task_struct *task, unsigned long eip, unsigned long user
     task->mm.pgdir = alloc_page();
     task->fs = kmalloc(sizeof(struct fs_struct));
     task->exited = false;
+    task->pid = get_next_pid();
     alloc_files_struct(task);
     panic_on(!task->mm.pgdir || !task->fs || !task->files, "alloc page failed");
     /* map to kernel space */
@@ -79,14 +85,26 @@ static struct task_struct* alloc_task()
     return task;
 }
 
+/* @fixme: the function is not atomic */
+static pid_t get_next_pid()
+{
+    pid_t ret = atomic_read(&next_pid);
+    atomic_inc(&next_pid);
+
+    return ret;
+}
+
 void init_tasks()
 {
     struct task_struct *init_task = (struct task_struct*)INIT_TASK;
     seg_desc_t the_tss_desc = {0};
 
+    atomic_set(&next_pid, 0);
+
     strcpy(init_task->comm, "init");
     init_task->mm.pgdir = init_pgtbl_dir;
-    init_task->pid = 0;
+    init_task->pid = get_next_pid();
+    panic_on(init_task->pid != 0, "unexpected here\n");
 
     init_task->cpu_state.esp0 = STACK_BOTTOM;
     INIT_LIST(&init_task->task_list);
@@ -195,9 +213,24 @@ void new_kthread(unsigned long addr)
     task->cpu_state.ebp = 0;
 }
 
-int sys_fork()
+int sys_fork(__unused u32 ebx, __unused u32 ecx, __unused u32 edx, struct intr_regs regs)
 {
-    return -EOPNOTSUPP;
+    struct task_struct *task = NULL;
+    struct task_struct *cur = current();
+
+    task = alloc_task();
+    if (!task) {
+        panic("alloc task failed\n");
+    }
+
+    printf("user esp is 0x%x\n", regs.esp);
+    init_task(task, (unsigned long)regs.eip, regs.esp, (unsigned long)(((char*)task) + STACK_SIZE));
+    strcpy(task->comm, cur->comm);
+    copy_task_mm(task, cur);
+    task->parent = cur;
+    init_user_task_finish(task);
+
+    return 0;
 }
 
 int sys_exit(int err)

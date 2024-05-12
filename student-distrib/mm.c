@@ -241,18 +241,58 @@ int page_bitmap_init(unsigned long addr)
     return 0;
 }
 
+static pte_t *walk_mm(uint32_t vaddr, pgd_t *pgd)
+{
+    uint32_t pgd_offset = 0;
+    uint32_t pde_offset = 0;
+    pde_t pde;  // pde represents 4M size memory
+    pte_t pte;  // pte represents 4K size memory
+    pte_t *ret = NULL;
+
+    panic_on(vaddr % PAGE_SIZE, "linear address should be page aligned 0x%x", vaddr);
+
+    pgd_offset = get_bits(vaddr, 22, 31);
+    pde_offset = get_bits(vaddr, 12, 21);
+
+    pde = (uint32_t)pgd[pgd_offset];
+    panic_on(!pde, "should never happed\n");
+
+    pde &= ~(PAGE_MASK);
+    pte = ((uint32_t*)pde)[pde_offset];
+    panic_on(!pte, "should never happed\n");
+
+    ret = &((uint32_t*)pde)[pde_offset];
+
+    return ret;
+}
+
+static pte_t __add_cow_mapping(u32 vaddr, u32 paddr, pgd_t *pgd)
+{
+    pte_t pte;
+
+    pte = (uint32_t)(paddr & ~(PAGE_MASK));
+    pte |= (1 << PRESENT_BIT);
+    pte |= (1 << RW_BIT);
+    pte |= (1 << US_BIT);
+    *walk_mm(vaddr, pgd) = pte;
+
+    flush_tlb();
+
+    return pte;
+}
+
 /* @NOTE: caller must hold mm lock */
-int __add_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd, bool user)
+int __add_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd, bool user)
 {
     uint32_t pgd_offset = 0;
     uint32_t pde_offset = 0;
     pde_t pde;  // pde represents 4M size memory
     pte_t pte;  // pte represents 4K size memory
 
-    panic_on(linear_addr % PAGE_SIZE, "linear address should be page aligned 0x%x", linear_addr);
+    panic_on(vaddr % PAGE_SIZE, "linear address should be page aligned 0x%x", vaddr);
 
-    pgd_offset = get_bits(linear_addr, 22, 31);
-    pde_offset = get_bits(linear_addr, 12, 21);
+    pgd_offset = get_bits(vaddr, 22, 31);
+    pde_offset = get_bits(vaddr, 12, 21);
 
     pde = (uint32_t)pgd[pgd_offset];
     if (!pde) {
@@ -270,7 +310,7 @@ int __add_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd, bool
     pde &= ~(PAGE_MASK);
     pte = ((uint32_t*)pde)[pde_offset];
     if (!pte) {
-        pte = (uint32_t)(phy_addr & ~(PAGE_MASK));
+        pte = (uint32_t)(paddr & ~(PAGE_MASK));
         pte |= (1 << PRESENT_BIT);
         pte |= (1 << RW_BIT);
         pte |= (user ? 1 << US_BIT : 0);
@@ -285,13 +325,13 @@ int __add_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd, bool
     return 0;
 }
 
-int kadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd) {
-    return __add_page_mapping(linear_addr, phy_addr, pgd, 0);
+int kadd_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd) {
+    return __add_page_mapping(vaddr, paddr, pgd, 0);
 }
 
 
-int uadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd) {
-    return __add_page_mapping(linear_addr, phy_addr, pgd, 1);
+int uadd_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd) {
+    return __add_page_mapping(vaddr, paddr, pgd, 1);
 }
 
 int page_table_init(pgd_t *pgd, bool user)
@@ -686,7 +726,20 @@ void page_fault_handler(unsigned long addr, unsigned long errno)
         panic_on(!pgd, "task is 0x%x:%s\n", cur, cur->comm);
         // void *page = alloc_page();
 
-        uadd_page_mapping(addr, addr, pgd);
+        if (!op_write) {
+            uadd_page_mapping(addr, addr, pgd);
+        } else {
+            void *page = alloc_page();
+            pte_t dst_pte = 0;
+            pte_t src_pte = 0;
+            struct task_struct *cur = current();
+
+            dst_pte = __add_cow_mapping(addr, (u32)page, cur->mm.pgdir);
+            src_pte = *walk_mm(addr, cur->parent->mm.pgdir);
+            src_pte &= ~PAGE_MASK;
+            dst_pte &= ~PAGE_MASK;
+            memcpy((void*)dst_pte, (void*)src_pte, PAGE_SIZE);
+        }
     }
 }
 
@@ -721,6 +774,7 @@ void liballoc_free(void *addr, size_t order)
     free_pages(addr, order);
 }
 
+u32 shell_stack = 0;
 void init_task_mm(struct task_struct *task, Elf32_Ehdr *header)
 {
     Elf32_Phdr *pheader = (Elf32_Phdr *)((char *)header + header->e_phoff);
@@ -729,6 +783,7 @@ void init_task_mm(struct task_struct *task, Elf32_Ehdr *header)
     void *stack = NULL;
 
     stack = alloc_page();
+    shell_stack = (u32)stack;
     panic_on(!stack, "alloc stack failed\n");
     uadd_page_mapping(task->cpu_state.esp - PAGE_SIZE, (u32)stack, task->mm.pgdir);
 
@@ -743,5 +798,47 @@ void init_task_mm(struct task_struct *task, Elf32_Ehdr *header)
             msize -= PAGE_SIZE;
         }
         pheader = (Elf32_Phdr*)((char*)pheader + psize);
+    }
+}
+extern u32 shell_stack;
+void copy_task_mm(struct task_struct *dst, struct task_struct *src)
+{
+    pgd_t *dst_pgd = dst->mm.pgdir;
+    pgd_t *src_pgd = src->mm.pgdir;
+    pde_t src_pde;
+    pte_t src_pte;
+    pte_t dst_pte;
+    int i = 0;
+    int j = 0;
+
+    for (i = 0; i < MAX_PDE_ENTRY; ++i) {
+        u32 new_pde = NULL;
+        src_pde = (uint32_t)src_pgd[i];
+        if (!src_pde) {
+            continue;
+        }
+
+        /* alloc new pde */
+        new_pde = (u32)alloc_page();
+        new_pde |= (1 << PRESENT_BIT);
+        new_pde |= (1 << RW_BIT);
+        new_pde |= (1 << US_BIT);
+        dst_pgd[i] = new_pde;
+
+        src_pde &= ~(PAGE_MASK);
+        new_pde &= ~(PAGE_MASK);
+        for (j = 0; j < MAX_PTE_ENTRY; ++j) {
+            src_pte = ((uint32_t*)src_pde)[j];
+            if (!src_pte) {
+                continue;
+            }
+
+            /* Set pte to readonly */
+            dst_pte = src_pte & ~(1 << RW_BIT);
+            if (src_pte > shell_stack && src_pte < shell_stack + PAGE_SIZE) {
+                printf("set 0x%x to readonly, shell_stack is 0x%x\n", src_pte & ~PAGE_MASK, shell_stack);
+            }
+            ((u32*)new_pde)[j] = dst_pte;
+        }
     }
 }

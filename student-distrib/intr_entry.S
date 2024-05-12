@@ -28,6 +28,7 @@
 common_intr_entry:
     # pusha instruction pushes the contents of the general-purpose registers onto stack.
     popl errno
+    pushl errno
     pusha
     pushl %ds
     pushl %es
@@ -102,7 +103,15 @@ MAKE_INTR_ENTRY_WITHOUT_ERRCODE PIC_RTC_INTR
 MAKE_INTR_ENTRY_WITHOUT_ERRCODE PIC_MOUSE_INTR
 
 syscall_entry:
-    pusha
+    pushl %eax
+    pushl %ecx
+    pushl %edx
+    pushl %ebx
+    pushl %esp
+    pushl %ebp
+    pushl %esi
+    pushl %edi
+
     pushl %ds
     pushl %es
     pushl %fs
@@ -118,12 +127,32 @@ syscall_entry:
     popl %ecx
     popl %edx
 
-    jmp common_iret
+    jmp syscall_iret
 syscall_err:
     mov $-1, %eax
-    jmp common_iret
+    jmp syscall_iret
+
+syscall_iret:
+    popl %gs
+    popl %fs
+    popl %es
+    popl %ds
+
+    # cannot use popa here, cause we need eax to pass retval to user
+    popl %edi
+    popl %esi
+    popl %ebp
+    popl %esp
+    popl %ebx
+    popl %edx
+    popl %ecx
+
+    addl $4, %esp # skip eax
+
+    iret
 
 timer_interrupt_entry:
+    pushl $0
     pusha
     pushl %ds
     pushl %es
@@ -140,6 +169,8 @@ common_iret:
     popl %es
     popl %ds
     popa
+
+    popl errno
 
     iret
 

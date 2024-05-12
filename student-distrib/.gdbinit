@@ -4,7 +4,7 @@ set pagination off
 
 b entry
 b __panic
-b generic_write
+b sys_fork
 # b intr0xD_handler
 # b schedule
 # b test_tasks

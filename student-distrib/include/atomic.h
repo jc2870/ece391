@@ -18,7 +18,7 @@ static inline int atomic_read(struct atomic *ptr) {
 
 #define atomic_inc(ptr) do {    \
     asm volatile ("lock; incl %0;"  \
-                  :"+m"(ptr->count) \
+                  :"+m"((ptr)->count) \
                   :                 \
                   :"memory"         \
     );                              \
@@ -26,7 +26,7 @@ static inline int atomic_read(struct atomic *ptr) {
 
 #define atomic_dec(ptr) do {    \
     asm volatile ("lock; decl %0"  \
-                  :"+m"(ptr->count) \
+                  :"+m"((ptr)->count) \
                   :                 \
                   :"memory"         \
     );                              \

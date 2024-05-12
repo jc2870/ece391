@@ -118,7 +118,7 @@ void entry(unsigned long magic, unsigned long addr)
     init_tasks();
     enable_paging();
     enable_irq(PIC_TIMER_INTR);
-#define TEST_TASKS
+// #define TEST_TASKS
 #ifdef TEST_TASKS
     init_test_tasks();
     test_tasks();

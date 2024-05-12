@@ -9,6 +9,9 @@ static int uart = 0;
 void uartputc(int c);
 static int uartgetc(void);
 
+static char serial_buf[128] = {0};
+static u8 serial_idx = 0;
+
 void init_serial() {
     char *p;
 
@@ -58,15 +61,23 @@ void uartputc(int c)
 
 int uartgetc(void)
 {
-  if(!uart)
-    return -1;
-  while (1) {
-    if (inb(COMS1+5) & 0x01) {
-        break;
-    }
-  }
+    char c;
 
-  return inb(COMS1+0);
+    if(!uart)
+        return -1;
+
+    while (1) {
+        if (inb(COMS1+5) & 0x01) {
+            break;
+        }
+    }
+
+    c = inb(COMS1+0);
+    cli();
+    serial_buf[serial_idx++] = c;
+    sti();
+
+    return c;
 }
 
 void intr0x34_handler()
@@ -95,7 +106,7 @@ int uartgets(char __user *buf, size_t size)
         buf[ret] = c;
         ret++;
 
-        if (c == '\n') {
+        if (c == '\n' || c == '\r') {
             break;
         }
 
@@ -109,7 +120,23 @@ int uartgets(char __user *buf, size_t size)
 
 ssize_t serial_read(struct file *file, char __user *buf, size_t size, u32 *offset)
 {
-    return uartgets(buf, size);
+    char c;
+    int ret;
+    while (1) {
+        cli();
+        c = serial_buf[serial_idx - 1];
+        if (c == '\n' || c == '\r') {
+            memcpy(buf, serial_buf, serial_idx);
+            memset(serial_buf, 0 , sizeof(serial_buf));
+            ret = serial_idx;
+            serial_idx = 0;
+            break;
+        }
+        sti();
+    }
+
+    sti();
+    return ret;
 }
 
 ssize_t serial_write(struct file *file, const char __user *buf, size_t size, u32 *offset)

@@ -8,6 +8,31 @@
 #define STACK_SIZE (2*PAGE_SIZE)
 #define USER_STACK 0x09000000
 
+struct intr_regs {
+    /* pushed in syscall_entry */
+    uint32_t gs;
+    uint32_t fs;
+    uint32_t es;
+    uint32_t ds;
+
+    /* pushed by pusha instruction */
+    uint32_t edi;
+    uint32_t esi;
+    uint32_t ebp;
+    uint32_t esp_unused;   /* user level stack */
+    uint32_t ebx;
+    uint32_t edx;
+    uint32_t ecx;
+    uint32_t eax;
+
+    /* pushed by hardware automatically */
+    uint32_t eip;
+    uint32_t cs;
+    uint32_t eflags;
+    uint32_t esp;   /* user level stack */
+    uint32_t ss;
+} __attribute__ ((packed));
+
 struct regs {
     uint32_t eax;
     uint32_t ebx;
