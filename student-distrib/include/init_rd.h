@@ -48,8 +48,8 @@ struct initrd_fs_mod {
 };
 
 
-extern void init_fs(multiboot_info_t *mbi);
-extern void display_file_name(void);
+extern void initrd_init(multiboot_info_t *mbi);
+extern void display_initrd_file_name(void);
 
 extern s32 read_dentry_by_name(const char* fname, initrd_dentry_t* dentry);
 extern s32 read_dentry_by_ino(u32 index, initrd_dentry_t* dentry);

@@ -54,11 +54,10 @@ int idt_test(){
 
 
 /* Test suite entry point */
-bool launch_tests() {
+void launch_tests() {
 	// TEST_OUTPUT("idt_test", idt_test());
 	// launch your tests here
     if (test_list() == false)
-        return false;
+		panic("test failed\n");
     test_alloc_pages();
-    return true;
 }

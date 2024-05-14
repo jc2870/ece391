@@ -10,7 +10,9 @@
 #define PAGE_SIZE 4096
 #define PAGE_MASK (PAGE_SIZE-1)
 
-#define SLOTS 4096*4
+#define MAX_MEMORY (4096ull*1024*1024)     // support 4GB memory
+
+#define SLOTS (MAX_MEMORY/PAGE_SIZE/8)
 #define _MAX_ORDER 10
 #define MAX_ORDER (_MAX_ORDER+1)    // max free list is 4M(4K * 2^10)
 
@@ -19,13 +21,13 @@
 
 struct task_struct;
 
-extern int init_paging(unsigned long addr);
+extern void mm_init(unsigned long addr);
 extern void enable_paging();
 
-extern void* alloc_pages(char order);
-extern void free_pages(void* addr, char order);
-extern void* alloc_page();
-extern void free_page(void* addr);
+extern void* get_free_pages(char order);
+extern void put_pages(usl_t addr, char order);
+extern void* get_free_page();
+extern void put_page(usl_t addr);
 extern void mm_show_statistics(uint32_t ret[MAX_ORDER]);
 
 typedef uint32_t pgd_t;
@@ -54,8 +56,19 @@ struct mm {
 extern int kadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd);
 extern int uadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd);
 
-extern int upgtbl_init(pgd_t *pgd);
+extern void upgtbl_init(struct task_struct *task);
 extern void init_task_mm(struct task_struct *task, Elf32_Ehdr *header);
 extern void copy_task_mm(struct task_struct *dst, struct task_struct *src);
+extern void* alloc_pgdir();
+
+static inline usl_t vadr2padr(usl_t addr)
+{
+    return addr;
+}
+
+static inline usl_t padr2vadr(usl_t addr)
+{
+    return addr;
+}
 
 #endif

@@ -31,6 +31,7 @@ extern void set_screen(int x, int y);
 int set_bits(int num, int n, int m);
 int clear_bits(int num, int n, int m);
 uint32_t get_bits(uint32_t num, int n, int m);
+bool get_bit(uint32_t num, int m);
 void __panic(int8_t *format, ...);
 
 #define likely(x) __builtin_expect(!!(x), 1)

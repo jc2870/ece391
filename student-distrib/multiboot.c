@@ -6,7 +6,7 @@ void multiboot_info(unsigned long magic, unsigned long addr)
     multiboot_info_t *mbi;
     /* Am I booted by a Multiboot-compliant boot loader? */
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        KERN_INFO("Invalid magic number: 0x%#x\n", (unsigned)magic);
+        panic("Invalid magic number: 0x%#x\n", (unsigned)magic);
         return;
     }
 
@@ -94,5 +94,22 @@ void multiboot_info(unsigned long magic, unsigned long addr)
     }
     if (CHECK_FLAG(mbi->flags, 12)) {
         printf("framebuffer is set\n");
+    }
+
+    {
+        char vendor[12];
+        uint32_t regs[4];
+
+        cpuid(0, regs);
+        ((unsigned *)vendor)[0] = regs[1]; // EBX
+        ((unsigned *)vendor)[1] = regs[3]; // EDX
+        ((unsigned *)vendor)[2] = regs[2]; // ECX
+
+        cpuid(1, regs);
+        unsigned logical = (regs[1] >> 16) & 0xff;
+        printf("there are %u logical cores\n", logical);
+        cpuid(4, regs);
+        uint32_t cores = ((regs[0] >> 26) & 0x3f) + 1;
+        printf("there are %u physical cores\n", cores);
     }
 }

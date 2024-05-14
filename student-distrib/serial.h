@@ -5,6 +5,6 @@
 #define COMS1 0x3F8
 #define COMS2 0x2F8
 
-void init_serial();
+void serial_init();
 void uartputc();
 #endif

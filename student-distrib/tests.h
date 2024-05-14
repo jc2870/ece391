@@ -5,6 +5,6 @@
 #include "tests/test_mm.h"
 
 // test launcher
-bool launch_tests();
+void launch_tests();
 
 #endif /* _TESTS_H */

@@ -29,7 +29,7 @@ module_t *get_fs_mod(multiboot_info_t *mbi)
     return NULL;
 }
 
-void init_fs(multiboot_info_t *mbi)
+void initrd_init(multiboot_info_t *mbi)
 {
     fs = kmalloc(sizeof(struct initrd_fs_mod));
     module_t *module = get_fs_mod(mbi);
@@ -49,7 +49,7 @@ void init_fs(multiboot_info_t *mbi)
     }
 }
 
-void display_file_name()
+void display_initrd_file_name()
 {
     int i = 0;
     for (i = 0; i < fs->boot_block->stat.nr_dentries; ++i) {

@@ -41,11 +41,21 @@ extern const int __kernel_end;
           will happen.
  */
 uint8_t mem_bitmap[SLOTS];
+uint8_t mem_refcnt[SLOTS*8];    // index is pfn
 #define BITS_IN_SLOT (sizeof(mem_bitmap[0])*8)
 uint64_t phy_mem_base;
 uint64_t phy_mem_len;
 uint64_t phy_mem_end;
 pgd_t *init_pgtbl_dir;
+
+static pfn_t find_buddy_pfn(pfn_t pfn, char order);
+static inline unsigned long pfn_to_page(pfn_t pfn);
+static inline pfn_t page_to_pfn(unsigned long addr);
+static void* alloc_pages(char order);
+static void free_pages(usl_t addr, char order);
+static void* alloc_page();
+static void free_page(usl_t addr);
+static bool pages_is_free(unsigned long addr, uint8_t order);
 
 struct free_mem_stcutre {
     struct list free_pages_head[MAX_ORDER];
@@ -87,14 +97,91 @@ void flush_tlb()
 /* only alloc 4k size memory, used for alloc page table */
 void* alloc_pgdir()
 {
-    return alloc_page();
+    return get_free_page();
+}
+
+u32 get_page_ref(void *page)
+{
+    int flags;
+    pfn_t pfn;
+    u8 ret;
+
+    cli_and_save(flags);
+    pfn = page_to_pfn((usl_t)page);
+    ret = mem_refcnt[pfn];
+    sti_and_restore(flags);
+    return ret;
+}
+
+void get_page(usl_t page)
+{
+    int flags;
+    pfn_t pfn;
+
+    panic_on(page%PAGE_SIZE, "invalid page address 0x0x\n", page);
+    cli_and_save(flags);
+    pfn = page_to_pfn(page);
+    mem_refcnt[pfn]++;
+    sti_and_restore(flags);
+}
+
+void put_page(usl_t page)
+{
+    int flags;
+    pfn_t pfn;
+
+    panic_on(page%PAGE_SIZE, "invalid page address 0x0x\n", page);
+    cli_and_save(flags);
+    pfn = page_to_pfn((usl_t)page);
+    panic_on(mem_refcnt[pfn] == 0, "mm bug, invalid page refcnt\n");
+    mem_refcnt[pfn]--;
+    if (mem_refcnt[pfn] == 0) {
+        free_page(page);
+    }
+    sti_and_restore(flags);
+}
+
+void get_pages(usl_t page, char order)
+{
+    int i = 0;
+
+    for (; i < (1 << order); ++i) {
+        get_page(page);
+        page += PAGE_SIZE;
+    }
+}
+
+void* get_free_pages(char order)
+{
+    void *pages = alloc_pages(order);
+    get_pages((usl_t)pages, order);
+
+    return pages;
+}
+
+void put_pages(usl_t addr, char order)
+{
+    int i = 0;
+
+    for (; i < (1 << order); ++i) {
+        put_page(addr);
+        addr += PAGE_SIZE;
+    }
+}
+
+void* get_free_page()
+{
+    void *page = alloc_page();
+    get_page((usl_t)page);
+
+    return page;
 }
 
 /* Get the slot and bit which addr belongs to */
 void page_bitmap_get_location(unsigned long addr, int *ret_slot, int *ret_bit)
 {
-    *ret_slot = (addr - phy_mem_base)/PAGE_SIZE/BITS_IN_SLOT;
-    *ret_bit = ((addr - phy_mem_base)/PAGE_SIZE)%BITS_IN_SLOT;
+    *ret_slot = (addr)/PAGE_SIZE/BITS_IN_SLOT;
+    *ret_bit = ((addr)/PAGE_SIZE)%BITS_IN_SLOT;
 }
 
 static inline void __page_bitmap_set(unsigned long addr, int slot, int bit)
@@ -133,9 +220,8 @@ void page_bitmap_set_free(void *addr, char order)
     page_bitmap_set(addr, order, 0);
 }
 
-int page_bitmap_init(unsigned long addr)
+int page_bitmap_init(multiboot_info_t *mbi)
 {
-    multiboot_info_t *mbi = (multiboot_info_t*)addr;
     uint32_t nr_pages = 0;
     uint32_t nr_slots = 0;
     uint32_t i = 0, j = 0;
@@ -189,20 +275,25 @@ int page_bitmap_init(unsigned long addr)
     for (i = 0; i < nr_slots; ++i) {
         /* every bit in uint8 */
         for (j = 0; j < BITS_IN_SLOT; ++j) {
-            unsigned long cur_addr = PAGE_SIZE * (i*BITS_IN_SLOT + j) + phy_mem_base;
-            /* mark kernel memory as used */
-            if (cur_addr >= (unsigned long)&__kernel_start && cur_addr < (unsigned long)&__kernel_end) {
-                // printf("cur addr %x is in kernel region, continue\n", cur_addr);
-                continue;
-            }
-            /* mark kernel stack as used */
-            if (cur_addr >= STACK_TOP && cur_addr < STACK_BOTTOM) {
-                // printf("cur addr %x is in stack region, continue\n", cur_addr);
+            unsigned long cur_addr = PAGE_SIZE * (i*BITS_IN_SLOT + j);
+
+            if (cur_addr >= VIDEO_MEM && cur_addr < VIDEO_MEM_END) {
+                get_page(cur_addr);
                 continue;
             }
 
-            /* Actually it's not necessary, because VIDEM_MEM is lower than phy_mem_base */
-            if (cur_addr >= VIDEO_MEM && cur_addr < VIDEO_MEM+PAGE_SIZE) {
+            if (cur_addr < phy_mem_base || cur_addr >= phy_mem_end) {
+                continue;
+            }
+
+            /* mark kernel memory as used and set ref count to max */
+            if (cur_addr >= (unsigned long)&__kernel_start && cur_addr < (unsigned long)&__kernel_end) {
+                get_page(cur_addr);
+                continue;
+            }
+            /* mark kernel stack as used and set ref count to max */
+            if (cur_addr >= KSTACK_TOP && cur_addr < KSTACK_BOTTOM) {
+                get_page(cur_addr);
                 continue;
             }
 
@@ -217,31 +308,24 @@ int page_bitmap_init(unsigned long addr)
         while (mod_count < mbi->mods_count) {
             for (unsigned long cur_addr = mod->mod_start; cur_addr < mod->mod_end; cur_addr += PAGE_SIZE) {
                 page_bitmap_set_busy((void*)cur_addr, 0);
-                kadd_page_mapping(cur_addr, cur_addr, init_pgtbl_dir);
+                get_page(cur_addr);
             }
             mod_count++;
             mod++;
         }
     }
 
-    ITERATE_PAGES({
-        unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
-        if (cur_addr >= VIDEO_MEM && cur_addr < VIDEO_MEM_END) {
-            kadd_page_mapping(cur_addr, cur_addr, init_pgtbl_dir);
-        }
-    }, {});
-
-    ITERATE_PAGES({}, {
 #ifdef DEBUG_MM
-        unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
+    ITERATE_PAGES({}, {
+        unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit);
         printf("address %x is used, slot is %d, bit is %d\n", cur_addr, __cur_slot, __cur_bit);
-#endif
     });
+#endif
 
     return 0;
 }
 
-static pte_t *walk_mm(uint32_t vaddr, pgd_t *pgd)
+static pte_t *get_pte(uint32_t vaddr, pgd_t *pgd)
 {
     uint32_t pgd_offset = 0;
     uint32_t pde_offset = 0;
@@ -266,15 +350,16 @@ static pte_t *walk_mm(uint32_t vaddr, pgd_t *pgd)
     return ret;
 }
 
-static pte_t __add_cow_mapping(u32 vaddr, u32 paddr, pgd_t *pgd)
+static pte_t __do_cow_page(u32 vaddr, u32 paddr, pgd_t *pgd)
 {
     pte_t pte;
 
     pte = (uint32_t)(paddr & ~(PAGE_MASK));
+    get_page(pte);
     pte |= (1 << PRESENT_BIT);
     pte |= (1 << RW_BIT);
     pte |= (1 << US_BIT);
-    *walk_mm(vaddr, pgd) = pte;
+    *get_pte(vaddr, pgd) = pte;
 
     flush_tlb();
 
@@ -329,12 +414,11 @@ int kadd_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd) {
     return __add_page_mapping(vaddr, paddr, pgd, 0);
 }
 
-
 int uadd_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd) {
     return __add_page_mapping(vaddr, paddr, pgd, 1);
 }
 
-int page_table_init(pgd_t *pgd, bool user)
+void page_table_init(pgd_t *pgd, bool user)
 {
     /* A pgd_t pointer points to a page, which contains 1024 pde_t */
     // init_pgtbl_dir = alloc_pgdir();
@@ -347,41 +431,38 @@ int page_table_init(pgd_t *pgd, bool user)
      *                0x(&__kernel_end) map to phy addr 0x(&__kernel_end)
      */
 
-    ITERATE_PAGES({}, {
-       unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
-       if (cur_addr >= (unsigned long)&__kernel_start)
-           __add_page_mapping(cur_addr, cur_addr, pgd, user);
-    });
+    usl_t cur_addr = (usl_t)&__kernel_start;
+    for (; cur_addr < (usl_t)&__kernel_end; cur_addr += PAGE_SIZE)
+        kadd_page_mapping(cur_addr, cur_addr, pgd);
 
-    ITERATE_PAGES({}, {
-       unsigned long cur_addr = PAGE_SIZE * (__cur_slot*BITS_IN_SLOT + __cur_bit) + phy_mem_base;
-       if (cur_addr >= VIDEO_MEM && cur_addr < VIDEO_MEM_END)
-           __add_page_mapping(cur_addr, cur_addr, pgd, user);
-    });
+    cur_addr = VIDEO_MEM;
+    for (; cur_addr < VIDEO_MEM_END; cur_addr += PAGE_SIZE)
+        kadd_page_mapping(cur_addr, cur_addr, pgd);
 
-    return 0;
+    cur_addr = (usl_t)pgd;
+    kadd_page_mapping(cur_addr, cur_addr, pgd);
 }
 
-int kpgtbl_init(pgd_t *pgd)
+void kpgtbl_init(pgd_t *pgd)
 {
-    return page_table_init(pgd, 0);
+    usl_t cur_addr = VIDEO_MEM;
+    /* map all phy memory and video memory to virtual mem */
+    for (cur_addr = 0; cur_addr < phy_mem_end; cur_addr += PAGE_SIZE) {
+        kadd_page_mapping(cur_addr, cur_addr, pgd);
+    }
 }
 
-int upgtbl_init(pgd_t *pgd)
+void upgtbl_init(struct task_struct *task)
 {
+    pgd_t *pgd = task->mm.pgdir;
+    char *stack = (char*)task;
+    int size = 0;
+    for (; size < STACK_SIZE; size += PAGE_SIZE, stack += PAGE_SIZE) {
+        uadd_page_mapping((usl_t)stack, (usl_t)stack, pgd);
+    }
+
     /* @fixme: bug here.  */
-    return page_table_init(pgd, 1);
-    // u32 cur_addr = (u32)&__kernel_start;
-    // while (cur_addr < (u32)&__kernel_end) {
-    //     uadd_page_mapping(cur_addr, cur_addr, pgd);
-    //     cur_addr += PAGE_SIZE;
-    // }
-    // cur_addr = VIDEO_MEM;
-    // while (cur_addr < VIDEO_MEM_END) {
-    //     uadd_page_mapping(cur_addr, cur_addr, pgd);
-    //     cur_addr += PAGE_SIZE;
-    // }
-    // return 0;
+    page_table_init(pgd, 1);
 }
 
 /*
@@ -449,12 +530,12 @@ static pfn_t find_buddy_pfn(pfn_t pfn, char order)
 
 static inline unsigned long pfn_to_page(pfn_t pfn)
 {
-    return (pfn * PAGE_SIZE) + phy_mem_base;
+    return (pfn * PAGE_SIZE);
 }
 
 static inline pfn_t page_to_pfn(unsigned long addr)
 {
-    return (addr - phy_mem_base) / PAGE_SIZE;
+    return addr / PAGE_SIZE;
 }
 
 /* @return: return the next address to be inited */
@@ -533,29 +614,29 @@ void mm_show_statistics(uint32_t ret[MAX_ORDER])
 #endif
 }
 
-int init_paging(unsigned long addr)
+void mm_init(unsigned long addr)
 {
     int ret = 0;
 
-    if ((ret = page_bitmap_init(addr))) {
-        return ret;
+    multiboot_info_t *mbi = (multiboot_info_t*)addr;
+    memset(mem_refcnt, 0, sizeof(mem_refcnt));
+    if ((ret = page_bitmap_init(mbi))) {
+        panic("init kpage table failed\n");
     }
     clear();
 
     if ((ret = init_free_pages_list())) {
-        return ret;
+        panic("init kpage table failed\n");
     }
     clear();
     mm_show_statistics(NULL);
 
     init_pgtbl_dir = alloc_pgdir();
     panic_on(!init_pgtbl_dir, "alloc pgtable failed\n");
-    if ((ret = kpgtbl_init(init_pgtbl_dir)))
-        return ret;
+    kpgtbl_init(init_pgtbl_dir);
+
     clear();
     mm_show_statistics(NULL);
-
-    return ret;
 }
 
 void enable_paging()
@@ -580,9 +661,6 @@ void enable_paging()
     /* After enable paging, do some sanity check. Chapter 4.1.4 */
     cpuid(1, regs);
 
-    /* test stack memory paging */
-    int a = 10;
-    a += 100;
     /* test video memory paging */
     printf("test video mem\n");
 }
@@ -653,8 +731,8 @@ void* alloc_pages(char order)
 static void try_to_merge(pfn_t pfn, char order)
 {
     pfn_t buddy_pfn = find_buddy_pfn(pfn, order);
-    unsigned long page = pfn * PAGE_SIZE + phy_mem_base;
-    unsigned long buddy_page = buddy_pfn * PAGE_SIZE + phy_mem_base;
+    unsigned long page = pfn_to_page(pfn);
+    unsigned long buddy_page = pfn_to_page(buddy_pfn);
     struct list *head = NULL;
 
     while (pages_is_free(buddy_page, order)) {
@@ -668,27 +746,27 @@ static void try_to_merge(pfn_t pfn, char order)
         head = get_free_pages_head(order);
         list_add_tail(head, (void*)page);
 
-        pfn = (page - phy_mem_base) / PAGE_SIZE;
+        pfn = page_to_pfn(page);
         buddy_pfn = find_buddy_pfn(pfn, order);
-        buddy_page = buddy_pfn * PAGE_SIZE + phy_mem_base;
+        buddy_page = pfn_to_page(buddy_pfn);
     }
 }
 
 /* Return (1 << order) pages to buddy system */
-void free_pages(void *addr, char order)
+void free_pages(usl_t addr, char order)
 {
     int flags;
     cli_and_save(flags);
-    pfn_t pfn = (unsigned long)(addr - phy_mem_base)/PAGE_SIZE;
+    pfn_t pfn = page_to_pfn(addr);
     struct list *head = NULL;
-    INIT_LIST(addr);
+    INIT_LIST((void*)addr);
 
     panic_on(order < 0 || order > MAX_ORDER, "invalid order %d\n", order);
     phy_mm_stcutre.all_free_pages += (1 << order);
     phy_mm_stcutre.nr_free_pages[order]++;
     head = get_free_pages_head(order);
-    list_add_tail(head, addr);
-    page_bitmap_set_free(addr, order);
+    list_add_tail(head, (void*)addr);
+    page_bitmap_set_free((void*)addr, order);
     try_to_merge(pfn, order);
     sti_and_restore(flags);
 }
@@ -701,7 +779,7 @@ void* alloc_page()
     return p;
 }
 
-void free_page(void *addr)
+void free_page(usl_t addr)
 {
     free_pages(addr, 0);
 }
@@ -712,32 +790,26 @@ void free_page(void *addr)
  */
 void page_fault_handler(unsigned long addr, unsigned long errno)
 {
-    bool page_present = !(errno & (1 << 0));
-    bool op_write = errno & (1 << 1);
-    bool from_user = errno & (1 << 2);
-
-    // KERN_INFO("page fault occured addr: 0x%x\n", addr);
+    bool page_absent = get_bit(errno, 0) == 0;
+    bool op_write = get_bit(errno, 1) == 1;
+    bool from_user = get_bit(errno, 2) == 1;
+    pgd_t *pgd = (pgd_t *)vadr2padr((usl_t)current()->mm.pgdir);
     panic_on(!addr, "null ptr referenced occured");
     if (!from_user) {
-        kadd_page_mapping(addr, addr, current()->mm.pgdir);
+        kadd_page_mapping(addr, addr, pgd);
     } else {
-        struct task_struct *cur = current();
-        pgd_t *pgd = cur->mm.pgdir;
-        panic_on(!pgd, "task is 0x%x:%s\n", cur, cur->comm);
-        // void *page = alloc_page();
-
         if (!op_write) {
             uadd_page_mapping(addr, addr, pgd);
         } else {
-            void *page = alloc_page();
+            void *page = get_free_page();
             pte_t dst_pte = 0;
             pte_t src_pte = 0;
-            struct task_struct *cur = current();
 
-            dst_pte = __add_cow_mapping(addr, (u32)page, cur->mm.pgdir);
-            src_pte = *walk_mm(addr, cur->parent->mm.pgdir);
+            dst_pte = __do_cow_page(addr, (u32)page, pgd);
+            src_pte = *get_pte(addr, pgd);
             src_pte &= ~PAGE_MASK;
             dst_pte &= ~PAGE_MASK;
+            put_page(src_pte);
             memcpy((void*)dst_pte, (void*)src_pte, PAGE_SIZE);
         }
     }
@@ -766,12 +838,12 @@ void liballoc_unlock(unsigned long flags)
 
 void* liballoc_alloc(size_t order)
 {
-    return alloc_pages(order);
+    return get_free_pages(order);
 }
 
 void liballoc_free(void *addr, size_t order)
 {
-    free_pages(addr, order);
+    put_pages((usl_t)addr, order);
 }
 
 u32 shell_stack = 0;
@@ -782,7 +854,7 @@ void init_task_mm(struct task_struct *task, Elf32_Ehdr *header)
     int i = 0;
     void *stack = NULL;
 
-    stack = alloc_page();
+    stack = get_free_page();
     shell_stack = (u32)stack;
     panic_on(!stack, "alloc stack failed\n");
     uadd_page_mapping(task->cpu_state.esp - PAGE_SIZE, (u32)stack, task->mm.pgdir);
@@ -819,7 +891,7 @@ void copy_task_mm(struct task_struct *dst, struct task_struct *src)
         }
 
         /* alloc new pde */
-        new_pde = (u32)alloc_page();
+        new_pde = (u32)get_free_page();
         new_pde |= (1 << PRESENT_BIT);
         new_pde |= (1 << RW_BIT);
         new_pde |= (1 << US_BIT);
@@ -841,4 +913,34 @@ void copy_task_mm(struct task_struct *dst, struct task_struct *src)
             ((u32*)new_pde)[j] = dst_pte;
         }
     }
+}
+
+void free_mm(pgd_t *pgd)
+{
+    pde_t pde;
+    pte_t pte;
+    int i = 0;
+    int j = 0;
+
+    for (i = 0; i < MAX_PDE_ENTRY; ++i) {
+        pde = (uint32_t)pgd[i];
+        if (!pde) {
+            continue;
+        }
+
+        pde &= ~(PAGE_MASK);
+        for (j = 0; j < MAX_PTE_ENTRY; ++j) {
+            pte = ((uint32_t*)pde)[j];
+            if (!pte) {
+                continue;
+            }
+
+            pte &= ~PAGE_MASK;
+
+            put_page(pte);
+        }
+        put_page(pde);
+    }
+
+    put_page((usl_t)pgd);
 }

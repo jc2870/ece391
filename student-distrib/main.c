@@ -74,61 +74,34 @@ void entry(unsigned long magic, unsigned long addr)
     console_init();
     i8259_init();
     early_setup_idt();
-    init_serial();
+    serial_init();
     sti();
     /*
      * Check if MAGIC is valid and print the Multiboot information structure
      * pointed by ADDR.
      */
     multiboot_info(magic, addr);
-    {
-        char vendor[12];
-        uint32_t regs[4];
-
-        cpuid(0, regs);
-        ((unsigned *)vendor)[0] = regs[1]; // EBX
-        ((unsigned *)vendor)[1] = regs[3]; // EDX
-        ((unsigned *)vendor)[2] = regs[2]; // ECX
-
-        cpuid(1, regs);
-        unsigned logical = (regs[1] >> 16) & 0xff;
-        printf("there are %u logical cores\n", logical);
-        cpuid(4, regs);
-        uint32_t cores = ((regs[0] >> 26) & 0x3f) + 1;
-        printf("there are %u physical cores\n", cores);
-    }
 
     /* Init the PIC */
-    if (init_timer()) {
-        panic("timer init failed\n");
-        return;
-    }
-    if (keyboard_init()) {
-        panic("keyboard init failed\n");
-        return;
-    }
-    clear();
-    if (init_paging(addr)) {
-        panic("paging init failed\n");
-        return;
-    }
-    if (launch_tests() == false)
-        panic("test failed\n");
+    timer_init();
+    keyboard_init();
+    mm_init(addr);
+    launch_tests();
 
-    init_tasks();
+    tasks_init();
     enable_paging();
     enable_irq(PIC_TIMER_INTR);
-// #define TEST_TASKS
+#define TEST_TASKS
 #ifdef TEST_TASKS
     init_test_tasks();
     test_tasks();
 #endif
-    init_fs((void*)addr);
-    display_file_name();
-#define TEST_FS
+    initrd_init((void*)addr);
+    display_initrd_file_name();
+// #define TEST_FS
 #ifdef TEST_FS
     {
-        char *data = alloc_pages(1);
+        char *data = get_free_pages(1);
         const char *shell = "shell";
 
         clear();
@@ -172,5 +145,5 @@ void entry(unsigned long magic, unsigned long addr)
 
 int sys_setup()
 {
-
+    return 0;
 }

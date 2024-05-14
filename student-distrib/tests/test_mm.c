@@ -39,40 +39,40 @@ void test_alloc_pages()
     uint32_t stats2[MAX_ORDER] = {0};
 
     mm_show_statistics(stats1);
-    p0 = alloc_page();
+    p0 = get_free_page();
 #ifdef DEBUG_MM
     clear();
     printf("after alloc 1 page 0x%x\n", p0);
 #endif
     mm_show_statistics(stats2);
 
-    p1 = alloc_pages(1);
+    p1 = get_free_pages(1);
 #ifdef DEBUG_MM
     clear();
     printf("after alloc 2 page 0x%x\n", p1);
 #endif
     mm_show_statistics(stats2);
 
-    p2 = alloc_pages(2);
+    p2 = get_free_pages(2);
 #ifdef DEBUG_MM
     clear();
     printf("after alloc 4 page 0x%x\n", p2);
 #endif
     mm_show_statistics(stats2);
 
-    free_page(p0);
+    put_page((usl_t)p0);
 #ifdef DEBUG_MM
     clear();
 #endif
     mm_show_statistics(stats2);
 
-    free_pages(p1, 1);
+    put_pages((usl_t)p1, 1);
 #ifdef DEBUG_MM
     clear();
 #endif
     mm_show_statistics(stats2);
 
-    free_pages(p2, 2);
+    put_pages((usl_t)p2, 2);
 #ifdef DEBUG_MM
     clear();
 #endif

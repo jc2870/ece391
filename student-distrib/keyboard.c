@@ -133,7 +133,7 @@ static unsigned char scancode_map[256] = {
     [0x38]=SCAN_ALT ,[0xB8]=RELEASE_ALT,
 };
 
-int keyboard_init()
+void keyboard_init()
 {
     int v = 0;
 
@@ -149,7 +149,6 @@ int keyboard_init()
     outb(0xf4, DATA_PORT);
 
     enable_irq(PIC_KEYBOARD_INTR);
-    return 0;
 }
 
 void intr0x31_handler(unsigned long errno)

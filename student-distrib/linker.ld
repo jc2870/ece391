@@ -4,7 +4,7 @@ OUTPUT_ARCH(i386)
 
 SECTIONS
 {
-    . = 0x500000;
+    . = 0x400000;
     __kernel_start = .;
 
     .text :

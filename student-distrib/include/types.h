@@ -41,6 +41,8 @@ typedef int64_t s64;
 typedef long ssize_t;
 typedef unsigned long size_t;
 
+typedef unsigned long usl_t;
+
 #define __user __attribute__((noderef, address_space(1)))
 
 #endif /* ASM */

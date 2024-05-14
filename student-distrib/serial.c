@@ -12,7 +12,7 @@ static int uartgetc(void);
 static char serial_buf[128] = {0};
 static u8 serial_idx = 0;
 
-void init_serial() {
+void serial_init() {
     char *p;
 
     // Turn off the FIFO
