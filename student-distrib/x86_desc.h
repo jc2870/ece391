@@ -23,6 +23,11 @@
 #define KERNEL_TSS  0x0030 // (idx-06, ti-0(GDT) rpl-0)
 #define KERNEL_LDT  0x0038 // (idx-07, ti-0(GDT) rpl-0)
 
+#define KOFFSET 0xC0000000
+#define KTOP    0x100000000llu //4GB
+#define vdr2pdr(addr) ((addr) - KOFFSET)
+#define pdr2vdr(addr) ((addr) + KOFFSET)
+
 /* Size of the task state segment (TSS) */
 #define TSS_SIZE    104
 

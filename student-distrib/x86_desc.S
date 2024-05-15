@@ -69,11 +69,10 @@ gdt_end:
     # |                                    |                                 |
     # | Base 15:0                          | Segment Limit 15:0              |
     # |                                    |                                 |
-    # |----------------------------------------------------------------------|
-
+    # |-------------------------------------------------------------------
 gdt_desc:
     .word gdt_end - gdt_ptr - 1
-    .long gdt_ptr
+    .long vdr2pdr(gdt_ptr)
 
     # Set up one LDT
 ldt_desc_ptr:

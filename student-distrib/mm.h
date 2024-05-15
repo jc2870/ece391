@@ -48,27 +48,19 @@ extern pgd_t *init_pgtbl_dir;
 #define PS_BIT 7     // determine that if there is a 4M huge page, we always set to 0, means we disable 4M page
 #define GLOBAL_BIT 8 // global page. Not used
 
+#define PERM_P  (1 << PRESENT_BIT)
+#define PERM_RW (1 << RW_BIT)
+#define PERM_RO (0 << RW_BIT)
+#define PERM_US (1 << US_BIT)
+#define PERM_KN (0 << US_BIT)
+
 struct mm {
     pgd_t *pgdir;    // top level pgdir
 };
-
-
-extern int kadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd);
-extern int uadd_page_mapping(uint32_t linear_addr, uint32_t phy_addr, pgd_t *pgd);
 
 extern void upgtbl_init(struct task_struct *task);
 extern void init_task_mm(struct task_struct *task, Elf32_Ehdr *header);
 extern void copy_task_mm(struct task_struct *dst, struct task_struct *src);
 extern void* alloc_pgdir();
-
-static inline usl_t vadr2padr(usl_t addr)
-{
-    return addr;
-}
-
-static inline usl_t padr2vadr(usl_t addr)
-{
-    return addr;
-}
 
 #endif

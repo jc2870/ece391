@@ -4,14 +4,15 @@ OUTPUT_ARCH(i386)
 
 SECTIONS
 {
-    . = 0x400000;
+    . = 0xC0400000;
     __kernel_start = .;
 
-    .text :
+    .text :AT(0x400000)
     {
         __text_start = .;
         *(.text*)
         __text_end = .;
+	/* *(.text .stub .text.* .gnu.linkonce.t.*) */
     }
 
     . = ALIGN(16);

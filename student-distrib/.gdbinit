@@ -5,6 +5,7 @@ set pagination off
 b entry
 b __panic
 b sys_fork
+b _start
 # b intr0xD_handler
 # b schedule
 # b test_tasks

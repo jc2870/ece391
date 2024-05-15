@@ -15,20 +15,21 @@
 
 # Entrypoint to the kernel
 .globl start, _start, halt
+_start = vdr2pdr(entry)
 
 .align 4
-start:
-_start:
+.global entry
+entry:
     # Make sure interrupts are off
     cli
     jmp     continue
 
 continue:
     # Load the GDT
-    lgdt [gdt_desc]
+    lgdt [vdr2pdr(gdt_desc)]
 
     # Load CS with the new descriptor value
-    ljmp    $KERNEL_CS, $keep_going
+    ljmp    $KERNEL_CS, $vdr2pdr(keep_going)
 
 keep_going:
     # Set up ESP so we can have an initial stack
@@ -49,7 +50,7 @@ keep_going:
     pushl   %eax
 
     # Jump to the C entrypoint to the kernel.
-    call    entry
+    call    main
 
     # We'll never get back here, but we put in a hlt anyway.
 halt:

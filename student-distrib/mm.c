@@ -16,6 +16,38 @@ extern const int __bss_end;
 extern const int __kernel_start;
 extern const int __kernel_end;
 
+struct kmap {
+    u32 vaddr_start;
+    u32 paddr_start;
+    u32 paddr_end;
+    u32 perm;
+} kmap[] = {
+    // [0] = {
+    //     .vaddr_start = (u32)&__text_start,
+    //     .paddr_start = vdr2pdr((usl_t)&__text_start),
+    //     .paddr_end   = vdr2pdr((usl_t)&__text_end),
+    //     .perm        = (PERM_KN|PERM_P|PERM_RO),
+    // },
+    [1] = {
+        .vaddr_start = (u32)&__data_start,
+        .paddr_start = vdr2pdr((usl_t)&__data_start),
+        .paddr_end   = vdr2pdr((usl_t)&__data_end),
+        .perm        = (PERM_KN|PERM_P|PERM_RW),
+    },
+    [2] = {
+        .vaddr_start = (u32)&__bss_start,
+        .paddr_start = vdr2pdr((usl_t)&__bss_start),
+        .paddr_end   = vdr2pdr((usl_t)&__bss_end),
+        .perm        = (PERM_KN|PERM_P|PERM_RW),
+    },
+    [3] = {
+        .vaddr_start = (u32)VIDEO_MEM,
+        .paddr_start = vdr2pdr(VIDEO_MEM),
+        .paddr_end   = vdr2pdr(VIDEO_MEM_END),
+        .perm        = (PERM_KN|PERM_P|PERM_RW),
+    }
+};
+
 /*
  * @reference:
  *  1. Chapter 4 intel manual volume 3
@@ -56,6 +88,7 @@ static void free_pages(usl_t addr, char order);
 static void* alloc_page();
 static void free_page(usl_t addr);
 static bool pages_is_free(unsigned long addr, uint8_t order);
+static void setup_kvm(pgd_t *pgd);
 
 struct free_mem_stcutre {
     struct list free_pages_head[MAX_ORDER];
@@ -261,6 +294,7 @@ int page_bitmap_init(multiboot_info_t *mbi)
            phy_mem_base, phy_mem_len, nr_pages, nr_slots);
     printf("bss start is %lx, bss end is %lx\n", (unsigned long)&__bss_start, (unsigned long)&__bss_end);
     printf("kernel start is %lx, kernel end is %lx\n", (unsigned long)&__kernel_start, (unsigned long)&__kernel_end);
+    printf("data start is %lx, data end is %lx\n", (unsigned long)&__data_start, (unsigned long)&__data_end);
 
     if (nr_slots >= SLOTS) {
         /*
@@ -367,7 +401,7 @@ static pte_t __do_cow_page(u32 vaddr, u32 paddr, pgd_t *pgd)
 }
 
 /* @NOTE: caller must hold mm lock */
-int __add_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd, bool user)
+int __add_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd, u32 perm)
 {
     uint32_t pgd_offset = 0;
     uint32_t pde_offset = 0;
@@ -382,40 +416,19 @@ int __add_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd, bool user)
     pde = (uint32_t)pgd[pgd_offset];
     if (!pde) {
         pde = (uint32_t)alloc_pgdir();
-        pde |= (1 << PRESENT_BIT);
-        pde |= (1 << RW_BIT);
-        pde |= (user ? 1 << US_BIT : 0);
-        pgd[pgd_offset] = (uint32_t)pde;
-    } else if (user) {
-        /* Just for test usage. We built user program into memory */
-        pde |= (1 << US_BIT);
-        pgd[pgd_offset] = (uint32_t)pde;
     }
+    pde |= perm;
+    pgd[pgd_offset] = (uint32_t)pde;
 
     pde &= ~(PAGE_MASK);
     pte = ((uint32_t*)pde)[pde_offset];
     if (!pte) {
-        pte = (uint32_t)(paddr & ~(PAGE_MASK));
-        pte |= (1 << PRESENT_BIT);
-        pte |= (1 << RW_BIT);
-        pte |= (user ? 1 << US_BIT : 0);
-        ((uint32_t*)pde)[pde_offset] = pte;
-    } else if (user) {
-        pte |= (1 << US_BIT);
-        ((uint32_t*)pde)[pde_offset] = pte;
+        pte = (uint32_t)alloc_pgdir();
     }
-
-    flush_tlb();
+    pte |= perm;
+    ((uint32_t*)pde)[pde_offset] = pte;
 
     return 0;
-}
-
-int kadd_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd) {
-    return __add_page_mapping(vaddr, paddr, pgd, 0);
-}
-
-int uadd_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd) {
-    return __add_page_mapping(vaddr, paddr, pgd, 1);
 }
 
 void page_table_init(pgd_t *pgd, bool user)
@@ -430,26 +443,32 @@ void page_table_init(pgd_t *pgd, bool user)
      *                ...
      *                0x(&__kernel_end) map to phy addr 0x(&__kernel_end)
      */
+    setup_kvm(pgd);
+}
 
-    usl_t cur_addr = (usl_t)&__kernel_start;
-    for (; cur_addr < (usl_t)&__kernel_end; cur_addr += PAGE_SIZE)
-        kadd_page_mapping(cur_addr, cur_addr, pgd);
+static void setup_kvm(pgd_t *pgd)
+{
+    u64 cur_p = 0;
+    u64 cur_v = pdr2vdr(cur_p);
 
-    cur_addr = VIDEO_MEM;
-    for (; cur_addr < VIDEO_MEM_END; cur_addr += PAGE_SIZE)
-        kadd_page_mapping(cur_addr, cur_addr, pgd);
+    while (cur_v < KTOP) {
+        __add_page_mapping(cur_v, cur_p, pgd, PERM_P|PERM_KN|PERM_RW);
+        cur_p += PAGE_SIZE;
+        cur_v += PAGE_SIZE;
+    }
 
-    cur_addr = (usl_t)pgd;
-    kadd_page_mapping(cur_addr, cur_addr, pgd);
+    // cur_p = (usl_t)&__text_start;
+    // cur_v = pdr2vdr(cur_p);
+    // while (cur_v < pdr2vdr((usl_t)&__text_end)) {
+    //     __add_page_mapping(cur_v, cur_p, pgd, PERM_P|PERM_KN|PERM_RO);
+    //     cur_p += PAGE_SIZE;
+    //     cur_v += PAGE_SIZE;
+    // }
 }
 
 void kpgtbl_init(pgd_t *pgd)
 {
-    usl_t cur_addr = VIDEO_MEM;
-    /* map all phy memory and video memory to virtual mem */
-    for (cur_addr = 0; cur_addr < phy_mem_end; cur_addr += PAGE_SIZE) {
-        kadd_page_mapping(cur_addr, cur_addr, pgd);
-    }
+    setup_kvm(pgd);
 }
 
 void upgtbl_init(struct task_struct *task)
@@ -458,7 +477,7 @@ void upgtbl_init(struct task_struct *task)
     char *stack = (char*)task;
     int size = 0;
     for (; size < STACK_SIZE; size += PAGE_SIZE, stack += PAGE_SIZE) {
-        uadd_page_mapping((usl_t)stack, (usl_t)stack, pgd);
+        __add_page_mapping((usl_t)stack, (usl_t)stack, pgd, PERM_KN|PERM_P|PERM_RW);
     }
 
     /* @fixme: bug here.  */
@@ -651,10 +670,15 @@ void enable_paging()
     asm volatile (  "movl %0, %%cr3;"
                     "movl %%cr0, %%eax;"
                     "orl $0x80000000, %%eax;"
+                    "addl $0xc0000000, %%esp;"
+                    "movl 2f, %%ebx;"
+                    "addl $0xc0000000, %%ebx;"
+                    "addl $0xc0000000, %%ebp;"
                     "movl %%eax, %%cr0;"
+                    "2:"
                     :  /* no output */
                     :"r"(init_pgtbl_dir)  /* input pgtable dir */
-                    : "eax");
+                    : "eax", "ebx");
 
     /* set CR0.PG = 1 and CR4.PAE(disable PAE) = 0, CR4.PSE = 0(disable reserved bits) */
 
@@ -793,13 +817,13 @@ void page_fault_handler(unsigned long addr, unsigned long errno)
     bool page_absent = get_bit(errno, 0) == 0;
     bool op_write = get_bit(errno, 1) == 1;
     bool from_user = get_bit(errno, 2) == 1;
-    pgd_t *pgd = (pgd_t *)vadr2padr((usl_t)current()->mm.pgdir);
+    pgd_t *pgd = (pgd_t *)vdr2pdr((usl_t)current()->mm.pgdir);
     panic_on(!addr, "null ptr referenced occured");
     if (!from_user) {
-        kadd_page_mapping(addr, addr, pgd);
+        __add_page_mapping(addr, addr, pgd, PERM_KN|PERM_P|PERM_RW);
     } else {
         if (!op_write) {
-            uadd_page_mapping(addr, addr, pgd);
+            __add_page_mapping(addr, addr, pgd, PERM_P|PERM_US|PERM_RW);
         } else {
             void *page = get_free_page();
             pte_t dst_pte = 0;
@@ -857,7 +881,7 @@ void init_task_mm(struct task_struct *task, Elf32_Ehdr *header)
     stack = get_free_page();
     shell_stack = (u32)stack;
     panic_on(!stack, "alloc stack failed\n");
-    uadd_page_mapping(task->cpu_state.esp - PAGE_SIZE, (u32)stack, task->mm.pgdir);
+    __add_page_mapping(task->cpu_state.esp - PAGE_SIZE, (u32)stack, task->mm.pgdir, PERM_KN|PERM_P|PERM_RW);
 
     for (i = 0; i < header->e_phnum; ++i) {
         int msize = pheader->p_memsz;
@@ -866,7 +890,8 @@ void init_task_mm(struct task_struct *task, Elf32_Ehdr *header)
 
         while (msize > 0) {
             u32 paddr = (u32)((u8*)header + pheader->p_offset);
-            uadd_page_mapping(pheader->p_vaddr & ~PAGE_MASK, paddr & ~PAGE_MASK, task->mm.pgdir);
+            __add_page_mapping(pheader->p_vaddr & ~PAGE_MASK,
+                paddr & ~PAGE_MASK, task->mm.pgdir, PERM_RW|PERM_US|PERM_P);
             msize -= PAGE_SIZE;
         }
         pheader = (Elf32_Phdr*)((char*)pheader + psize);

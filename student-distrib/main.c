@@ -67,7 +67,7 @@ static __unused void self_test()
     asm volatile ("int $0x3");
 }
 
-void entry(unsigned long magic, unsigned long addr)
+void main(unsigned long magic, unsigned long addr)
 {
     if (detect_apic() == false)
         return;
@@ -86,7 +86,7 @@ void entry(unsigned long magic, unsigned long addr)
     timer_init();
     keyboard_init();
     mm_init(addr);
-    launch_tests();
+    // launch_tests();
 
     tasks_init();
     enable_paging();

@@ -6,7 +6,7 @@
 # Flags to use when compiling, preprocessing, assembling, and linking
 CFLAGS+=-Wall -fno-builtin -fno-stack-protector -nostdlib -Wno-char-subscripts -Wno-attributes # -pg -mrecord-mcount don't support these two options yet
 ASFLAGS+=
-LDFLAGS+=-nostdlib -static -m32
+LDFLAGS+=-nostdlib -static -m32 -e0x40000c
 CC=gcc
 
 #If you have any .h files in another directory, add -I<dir> to this line
