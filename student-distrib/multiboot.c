@@ -1,6 +1,10 @@
 #include "multiboot.h"
 #include "lib.h"
+#include "types.h"
 
+
+extern const int __kernel_start;
+extern const int __kernel_end;
 void multiboot_info(unsigned long magic, unsigned long addr)
 {
     multiboot_info_t *mbi;
@@ -112,4 +116,6 @@ void multiboot_info(unsigned long magic, unsigned long addr)
         uint32_t cores = ((regs[0] >> 26) & 0x3f) + 1;
         printf("there are %u physical cores\n", cores);
     }
+
+    printf("kernel start is 0x%x, kernel end is 0x%x\n", (usl_t)&__kernel_start, (usl_t)&__kernel_end);
 }

@@ -72,15 +72,20 @@ void main(unsigned long magic, unsigned long addr)
     if (detect_apic() == false)
         return;
     console_init();
+    printf("console_init finished\n");
     i8259_init();
+    printf("i8259_init finished\n");
     early_setup_idt();
+    printf("early_setup_idt finished\n");
     serial_init();
+    printf("serial_init finished\n");
     sti();
     /*
      * Check if MAGIC is valid and print the Multiboot information structure
      * pointed by ADDR.
      */
     multiboot_info(magic, addr);
+    while (1);
 
     /* Init the PIC */
     timer_init();
