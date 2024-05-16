@@ -1,10 +1,16 @@
-ENTRY(_start)
+ENTRY(phy_entry)
 OUTPUT_FORMAT(elf32-i386)
 OUTPUT_ARCH(i386)
 
+/* ref https://github.com/rpjohnst/kernel */
+kernel_base = 0xC0000000;
+kernel_base_phy = 0x400000;
+
+phy_entry = entry - kernel_base;
+
 SECTIONS
 {
-    . = 0xC0400000;
+    . = kernel_base + kernel_base_phy;
     __kernel_start = .;
 
     .text :AT(0x400000)

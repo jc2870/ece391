@@ -51,14 +51,10 @@ keep_going:
 
     lea  (__kernel_start), %ebx
     lea  (__kernel_end), %ecx
-    subl %ebx, %ecx
-    shr  $12, %ecx
-    incl %ecx
-    movl %ecx, %ebp     # ebp存放循环次数
     movl %ebx, %edx     # edx存放线性地址
     shr  $22, %edx       # 右移22位得到pgd中的偏移量
     lea  vdr2pdr(kpgd)(,%edx,4), %edx   # 得到pgd中对应偏移量的地址
-    lea  vdr2pdr(kpde1), %eax            # 获取对应的物理地址
+    lea  vdr2pdr(kpde1), %eax            # 获取kpde1对应的物理地址
     addl $0x7, %eax # set rw p user
     movl %edx, %edi
     stosl           # set pgd ok. Let's set pde
@@ -66,7 +62,7 @@ keep_going:
     lea  (__kernel_start), %ebx
     movl %ebx, %edx          # 当前虚拟地址
     andl $0x3ff000, %ebx # ebx存放pde中的偏移量
-    shr $12, %ebx
+    shr $12, %ebx        # 需要右移12位，把低12位清0
     lea 0x400, %ecx     # 1024-ecx, 得到页表中剩余需要填充的数量
     subl %ebx, %ecx
 
@@ -81,6 +77,7 @@ keep_going:
     loop 11b
 
     # 映射0x400000虚拟地址到0x400000物理地址
+    # 临时使用，不然开启paging后无法继续执行。 后续在c中可以撤销此映射
     lea vdr2pdr(kpgd), %edi
     addl $0x4, %edi
     lea vdr2pdr(kpde0), %eax
@@ -93,7 +90,7 @@ keep_going:
     lea vdr2pdr(kpgd), %eax
     movl %eax, %cr3
 
-    # 映射栈
+    # 映射栈,仅映射8KB
     lea pdr2vdr(KSTACK_TOP), %edx
     andl $0x3ff000, %edx
     shr $12, %edx
@@ -127,11 +124,12 @@ kpgd:
     .long 0
     .endr
 
+# 映射0xC0400000到0x400000
 kpde1:
     .rept 1024
     .long 0
     .endr
-
+# 映射0x400000到0x400000
 kpde0:
     .rept 1024
     .long 0
