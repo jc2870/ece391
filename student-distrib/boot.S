@@ -46,8 +46,11 @@ keep_going:
     # Push the parameters that entry() expects (see kernel.c):
     # eax = multiboot magic
     # ebx = address of multiboot info struct
+    addl $0xC0000000, %ebx
     pushl   %ebx
     pushl   %eax
+
+    movl %ebx, %ebp # backup multiboot address
 
     lea  (__kernel_start), %ebx
     lea  (__kernel_end), %ecx
@@ -103,6 +106,26 @@ keep_going:
     addl $0x1000, %eax
     loop 22b
 
+multiboot:
+    # 为multiboot address增加映射
+    andl $0xfffff000, %ebp
+    movl %ebp, %edx
+    shr $22, %edx
+    lea vdr2pdr(kpgd)(,%edx,4), %edx
+    movl %edx, %edi
+    lea vdr2pdr(kpde2), %eax
+    addl $0x7, %eax
+    stosl
+    movl %ebp, %edx
+    andl $0x3ff000, %edx
+    shr $12, %edx
+    lea vdr2pdr(kpde2)(,%edx,4), %edx
+    movl %edx, %edi
+    subl $0xC0000000, %ebp
+    movl %ebp, %eax
+    addl $0x7, %eax
+    stosl
+
     # enable paging now
     movl %cr0, %eax
     orl  $0x80000000, %eax
@@ -120,6 +143,12 @@ halt:
 
 .align 0x1000
 kpgd:
+    .rept 1024
+    .long 0
+    .endr
+
+# 映射multiboot info
+kpde2:
     .rept 1024
     .long 0
     .endr

@@ -260,7 +260,7 @@ int page_bitmap_init(multiboot_info_t *mbi)
     uint32_t i = 0, j = 0;
     if (CHECK_FLAG(mbi->flags, 6)) {
         memory_map_t *mmap;
-        printf("phy memory:\n");
+        // printf("phy memory:\n");
         for (mmap = (memory_map_t *)mbi->mmap_addr;
                 (unsigned long)mmap < mbi->mmap_addr + mbi->mmap_length;
                 mmap = (memory_map_t *)((unsigned long)mmap + mmap->size + sizeof (mmap->size))) {
@@ -268,11 +268,11 @@ int page_bitmap_init(multiboot_info_t *mbi)
                 continue;
             if (!mmap->base_addr_high && !mmap->base_addr_low)
                 continue;
-            printf("\tbase_addr = 0x%#x%#x, length = 0x%#x%#x\n",
-                    (unsigned)mmap->base_addr_high,
-                    (unsigned)mmap->base_addr_low,
-                    (unsigned)mmap->length_high,
-                    (unsigned)mmap->length_low);
+            // printf("\tbase_addr = 0x%#x%#x, length = 0x%#x%#x\n",
+            //         (unsigned)mmap->base_addr_high,
+            //         (unsigned)mmap->base_addr_low,
+            //         (unsigned)mmap->length_high,
+            //         (unsigned)mmap->length_low);
             phy_mem_base = (((unsigned long long)mmap->base_addr_high) << 32) | (unsigned)mmap->base_addr_low;
             phy_mem_len = (((unsigned long long)mmap->length_high) << 32) | (unsigned)mmap->length_low;
             phy_mem_end = phy_mem_base + phy_mem_len;
@@ -280,7 +280,7 @@ int page_bitmap_init(multiboot_info_t *mbi)
     }
 
     if (!phy_mem_len) {
-        KERN_INFO("ERROR: no usable memory\n");
+        // KERN_INFO("ERROR: no usable memory\n");
         return -ENOMEM;
     }
     /* make memory size aligned to page_size*/
@@ -290,18 +290,18 @@ int page_bitmap_init(multiboot_info_t *mbi)
 
     nr_pages = phy_mem_len / PAGE_SIZE;
     nr_slots = (nr_pages+BITS_IN_SLOT)/BITS_IN_SLOT;
-    printf("Memory base is %llx, size is %llx, there are %u pages, used %u slots\n",
-           phy_mem_base, phy_mem_len, nr_pages, nr_slots);
-    printf("bss start is %lx, bss end is %lx\n", (unsigned long)&__bss_start, (unsigned long)&__bss_end);
-    printf("kernel start is %lx, kernel end is %lx\n", (unsigned long)&__kernel_start, (unsigned long)&__kernel_end);
-    printf("data start is %lx, data end is %lx\n", (unsigned long)&__data_start, (unsigned long)&__data_end);
+    // printf("Memory base is %llx, size is %llx, there are %u pages, used %u slots\n",
+    //        phy_mem_base, phy_mem_len, nr_pages, nr_slots);
+    // printf("bss start is %lx, bss end is %lx\n", (unsigned long)&__bss_start, (unsigned long)&__bss_end);
+    // printf("kernel start is %lx, kernel end is %lx\n", (unsigned long)&__kernel_start, (unsigned long)&__kernel_end);
+    // printf("data start is %lx, data end is %lx\n", (unsigned long)&__data_start, (unsigned long)&__data_end);
 
     if (nr_slots >= SLOTS) {
         /*
          * qemu -m $memory is too large, or SLOTS was defined too small
          * Ajust one of them, otherwise will happen unexpected memory overwritten.
          */
-        KERN_INFO("BUG: error memory. BITS_IN_SLOT is %d, nr_slots is %d, SLOTS is %d\n", BITS_IN_SLOT, nr_slots, SLOTS);
+        // KERN_INFO("BUG: error memory. BITS_IN_SLOT is %d, nr_slots is %d, SLOTS is %d\n", BITS_IN_SLOT, nr_slots, SLOTS);
         return -EINVAL;
     }
 

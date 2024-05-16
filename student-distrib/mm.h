@@ -62,5 +62,7 @@ extern void upgtbl_init(struct task_struct *task);
 extern void init_task_mm(struct task_struct *task, Elf32_Ehdr *header);
 extern void copy_task_mm(struct task_struct *dst, struct task_struct *src);
 extern void* alloc_pgdir();
+extern int __add_page_mapping(uint32_t vaddr, uint32_t paddr, pgd_t *pgd, u32 perm);
+extern int page_bitmap_init(multiboot_info_t *mbi);
 
 #endif
