@@ -173,7 +173,7 @@ static void intr0x3D_handler(unsigned long errno)
 
 void setup_intr_handler()
 {
-    memset(&intr_entry, 0, sizeof(intr_entry));
+    asm volatile ("cld; rep; stosl; "::"D"(&intr_entry), "a"(0x0l), "c"(sizeof(intr_entry)/4) : "cc", "memory");
 
     SET_STATIC_INTR_HANDLER(0x0);
     SET_STATIC_INTR_HANDLER(0x1);
@@ -205,12 +205,7 @@ void setup_intr_handler()
 
 void early_setup_idt()
 {
-    struct x86_desc idt_desc =
-    {
-        .size = sizeof(idt)-1,
-        .addr = (u32)&idt,
-    };
-
+    struct x86_desc test = {0};
     for (int i = 0; i < 256; ++i) {
         set_intr_gate(i, ignore_intr);
     }
@@ -243,7 +238,8 @@ void early_setup_idt()
     set_intr_gate(PIC_KEYBOARD_INTR, intr0x31_entry);
     set_intr_gate(PIC_SERIAL2_INTR, intr0x34_entry);
     set_intr_gate(PIC_MOUSE_INTR, intr0x3C_entry);
-    asm volatile ("lidt %0" ::"m"(idt_desc));
+    asm volatile ("lidt %0" ::"m"(idt_desc_ptr));
+    asm volatile ("sidt %0" :"=m"(test)::"memory");
 
     setup_intr_handler();
 }

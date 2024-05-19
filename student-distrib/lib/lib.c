@@ -7,10 +7,11 @@
 #include "vga.h"
 #include "stdarg.h"
 #include "serial.h"
+#include "x86_desc.h"
 
 static int screen_x;
 static int screen_y;
-static char* video_mem = (char *)VIDEO_MEM;
+static char* video_mem = (char *)pdr2vdr(VIDEO_MEM);
 
 /* void clear(void);
  * Inputs: void
@@ -520,7 +521,6 @@ void* memset(void* s, int32_t c, uint32_t n) {
             jmp     .memset_top     \n\
             .memset_aligned:        \n\
             movw    %%ds, %%dx      \n\
-            movw    %%dx, %%es      \n\
             movl    %%ecx, %%edx    \n\
             shrl    $2, %%ecx       \n\
             andl    $0x3, %%edx     \n\

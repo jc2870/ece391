@@ -187,7 +187,7 @@ typedef union idt_desc_t {
 /* The IDT itself (declared in x86_desc.S */
 extern idt_desc_t idt[NUM_VEC];
 /* The descriptor used to load the IDTR */
-extern struct x86_desc idt_desc;
+extern struct x86_desc idt_desc_ptr;
 
 /* Sets runtime parameters for an IDT entry */
 #define SET_IDT_ENTRY(str, handler)                              \

@@ -7,7 +7,7 @@
 .text
 
 .globl ldt_size, tss_size
-.globl gdt_desc, ldt_desc, tss_desc
+.globl gdt_desc0, gdt_desc1, ldt_desc, tss_desc
 .globl tss, tss_desc_ptr, ldt, ldt_desc_ptr
 .globl gdt_ptr
 .globl idt_desc_ptr, idt
@@ -70,9 +70,13 @@ gdt_end:
     # | Base 15:0                          | Segment Limit 15:0              |
     # |                                    |                                 |
     # |-------------------------------------------------------------------
-gdt_desc:
+gdt_desc0:
     .word gdt_end - gdt_ptr - 1
     .long vdr2pdr(gdt_ptr)
+
+gdt_desc1:
+    .word gdt_end - gdt_ptr - 1
+    .long gdt_ptr
 
     # Set up one LDT
 ldt_desc_ptr:
@@ -96,7 +100,6 @@ idt_desc_ptr:
 
     .align  16
 idt:
-_idt:
     .rept NUM_VEC
     .quad 0
     .endr

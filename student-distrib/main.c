@@ -72,8 +72,6 @@ void main(unsigned long magic, unsigned long addr)
 {
     if (detect_apic() == false)
         return;
-    page_bitmap_init((multiboot_info_t*)addr);
-    __add_page_mapping(pdr2vdr(VIDEO_MEM), VIDEO_MEM, &kpgd, PERM_KN|PERM_P|PERM_RW);
     console_init();
     printf("console_init finished\n");
     i8259_init();
@@ -88,7 +86,6 @@ void main(unsigned long magic, unsigned long addr)
      * pointed by ADDR.
      */
     multiboot_info(magic, addr);
-    while (1);
 
     /* Init the PIC */
     timer_init();

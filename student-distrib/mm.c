@@ -6,6 +6,7 @@
 #include "types.h"
 #include "vga.h"
 #include "list.h"
+#include "x86_desc.h"
 
 extern const int __text_start;
 extern const int __text_end;
@@ -15,6 +16,8 @@ extern const int __bss_start;
 extern const int __bss_end;
 extern const int __kernel_start;
 extern const int __kernel_end;
+
+__section(".page_array") struct page *mem_map;
 
 struct kmap {
     u32 vaddr_start;
@@ -261,21 +264,23 @@ int page_bitmap_init(multiboot_info_t *mbi)
     if (CHECK_FLAG(mbi->flags, 6)) {
         memory_map_t *mmap;
         // printf("phy memory:\n");
-        for (mmap = (memory_map_t *)mbi->mmap_addr;
-                (unsigned long)mmap < mbi->mmap_addr + mbi->mmap_length;
+        mmap = (memory_map_t *)mbi->mmap_addr;
+        for (mmap = (memory_map_t*)pdr2vdr((u32)mmap);
+                (unsigned long)mmap < pdr2vdr(mbi->mmap_addr) + mbi->mmap_length;
                 mmap = (memory_map_t *)((unsigned long)mmap + mmap->size + sizeof (mmap->size))) {
             if (mmap->type != 1)
                 continue;
             if (!mmap->base_addr_high && !mmap->base_addr_low)
                 continue;
-            // printf("\tbase_addr = 0x%#x%#x, length = 0x%#x%#x\n",
-            //         (unsigned)mmap->base_addr_high,
-            //         (unsigned)mmap->base_addr_low,
-            //         (unsigned)mmap->length_high,
-            //         (unsigned)mmap->length_low);
+            printf("\tbase_addr = 0x%#x%#x, length = 0x%#x%#x\n",
+                    (unsigned)mmap->base_addr_high,
+                    (unsigned)mmap->base_addr_low,
+                    (unsigned)mmap->length_high,
+                    (unsigned)mmap->length_low);
             phy_mem_base = (((unsigned long long)mmap->base_addr_high) << 32) | (unsigned)mmap->base_addr_low;
             phy_mem_len = (((unsigned long long)mmap->length_high) << 32) | (unsigned)mmap->length_low;
             phy_mem_end = phy_mem_base + phy_mem_len;
+            break;  // asume no more availble memory
         }
     }
 
@@ -286,7 +291,8 @@ int page_bitmap_init(multiboot_info_t *mbi)
     /* make memory size aligned to page_size*/
     phy_mem_len &= ~PAGE_MASK;
     /* mark all memory as used */
-    memset(mem_bitmap, 0xffffffff, sizeof(mem_bitmap));
+    asm volatile ("cld; rep; stosl; "::"D"(mem_bitmap), "a"(0xffffffff), "c"(sizeof(mem_bitmap)/4) : "cc", "memory");
+    asm volatile ("cld; rep; stosl; "::"D"(mem_refcnt), "a"(0x0l), "c"(sizeof(mem_refcnt)/4) : "cc", "memory");
 
     nr_pages = phy_mem_len / PAGE_SIZE;
     nr_slots = (nr_pages+BITS_IN_SLOT)/BITS_IN_SLOT;
@@ -321,7 +327,7 @@ int page_bitmap_init(multiboot_info_t *mbi)
             }
 
             /* mark kernel memory as used and set ref count to max */
-            if (cur_addr >= (unsigned long)&__kernel_start && cur_addr < (unsigned long)&__kernel_end) {
+            if (cur_addr >= vdr2pdr((usl_t)&__kernel_start) && cur_addr < vdr2pdr((usl_t)&__kernel_end)) {
                 get_page(cur_addr);
                 continue;
             }
@@ -338,9 +344,9 @@ int page_bitmap_init(multiboot_info_t *mbi)
 
     if (CHECK_FLAG(mbi->flags, 3)) {
         int mod_count = 0;
-        module_t* mod = (module_t*)mbi->mods_addr;
+        module_t* mod = (module_t*)pdr2vdr(mbi->mods_addr);
         while (mod_count < mbi->mods_count) {
-            for (unsigned long cur_addr = mod->mod_start; cur_addr < mod->mod_end; cur_addr += PAGE_SIZE) {
+            for (usl_t cur_addr = mod->mod_start; cur_addr < mod->mod_end; cur_addr += PAGE_SIZE) {
                 page_bitmap_set_busy((void*)cur_addr, 0);
                 get_page(cur_addr);
             }
@@ -633,12 +639,18 @@ void mm_show_statistics(uint32_t ret[MAX_ORDER])
 #endif
 }
 
+static usl_t boot_bitmap_alloc(u8 order)
+{
+    u32 nr_pages = phy_mem_end / PAGE_SIZE;
+}
+
 void mm_init(unsigned long addr)
 {
     int ret = 0;
 
     multiboot_info_t *mbi = (multiboot_info_t*)addr;
-    memset(mem_refcnt, 0, sizeof(mem_refcnt));
+    memset(mem_refcnt, 0, sizeof(mem_refcnt)/4);
+    // asm volatile ("cld; rep stosl;"::"D"(mem_refcnt), "a"(0x0l), "c"(sizeof(mem_refcnt)/4) : "cc", "memory");
     if ((ret = page_bitmap_init(mbi))) {
         panic("init kpage table failed\n");
     }

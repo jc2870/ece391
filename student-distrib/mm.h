@@ -54,8 +54,19 @@ extern pgd_t *init_pgtbl_dir;
 #define PERM_US (1 << US_BIT)
 #define PERM_KN (0 << US_BIT)
 
+#define HIGH_MEM (896 * 1024 *1024)
+
 struct mm {
     pgd_t *pgdir;    // top level pgdir
+};
+
+struct page {
+    union{
+        u64 val[2];
+        struct {
+            struct list list;
+        };
+    };
 };
 
 extern void upgtbl_init(struct task_struct *task);

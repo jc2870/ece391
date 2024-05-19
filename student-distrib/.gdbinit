@@ -3,6 +3,7 @@ layout split
 set pagination off
 
 b entry
+b main
 b __panic
 b sys_fork
 b _start
