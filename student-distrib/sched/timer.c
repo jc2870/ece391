@@ -2,13 +2,15 @@
 #include "i8259.h"
 #include "intr.h"
 #include "list.h"
+#include "mm.h"
 #include "multiboot.h"
 #include "tasks.h"
+#include "types.h"
 #include "x86_desc.h"
 
 #define update_tss(task) tss.esp0 = (unsigned long)(((char*)task)+STACK_SIZE)
 
-#define switch_to(cur,new) \
+#define switch_to(cur,new, pgd) \
 do  {   \
     asm volatile ("pusha;"           \
          "pushl %%ds;"       \
@@ -33,7 +35,8 @@ do  {   \
          "popl %%ds;"        \
          "popa;"            \
         :"=m"(cur->cpu_state.esp0), "=m"(cur->cpu_state.eip)     \
-        :"m"((new)->cpu_state.esp0), "m"((new)->cpu_state.eip), "r"((new)->mm.pgdir) \
+        :"m"((new)->cpu_state.esp0), "m"((new)->cpu_state.eip),     \
+         "r"(pgd) \
     );  \
 } while(0)
 
@@ -41,6 +44,7 @@ void schedule()
 {
     struct task_struct *cur = current();
     struct task_struct *next = NULL;
+    pgd_t *new_pgd = NULL;
     if (list_empty(&runnable_tasks)) {
         return;
     }
@@ -58,7 +62,8 @@ void schedule()
     next->state = TASK_RUNNING;
 
     update_tss(next);
-    switch_to(cur, next);
+    new_pgd = (pgd_t*)vdr2pdr((usl_t)next->mm.pgdir);
+    switch_to(cur, next, new_pgd);
     /*
      * Stack has changed, cur & next also changed, so we can't use cur/next any more
      * asm volatile ("movl %0, %%cr3;" : :"r"(next->mm.pgdir));

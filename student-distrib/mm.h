@@ -20,15 +20,16 @@
 #define MAX_PTE_ENTRY MAX_PDE_ENTRY
 
 struct task_struct;
+struct page;
 
 extern void mm_init(unsigned long addr);
-extern void enable_paging();
 
-extern void* get_free_pages(char order);
-extern void put_pages(usl_t addr, char order);
-extern void* get_free_page();
-extern void put_page(usl_t addr);
+extern struct page* get_free_pages(char order);
+extern void put_pages(struct page*, char order);
+extern struct page* get_free_page();
+extern void put_page(struct page *);
 extern void mm_show_statistics(uint32_t ret[MAX_ORDER]);
+extern usl_t page_vdr(struct page *);
 
 typedef uint32_t pgd_t;
 typedef uint32_t pde_t;
@@ -57,18 +58,19 @@ extern pgd_t *init_pgtbl_dir;
 #define HIGH_MEM (896 * 1024 *1024)
 
 struct mm {
-    pgd_t *pgdir;    // top level pgdir
+    pgd_t *pgdir;    // top level pgdir, it's physical address
 };
 
 struct page {
     union{
         u64 val[2];
         struct {
-            struct list list;
+            struct list bd_list;
         };
     };
 };
 
+extern pgd_t kpgd;
 extern void upgtbl_init(struct task_struct *task);
 extern void init_task_mm(struct task_struct *task, Elf32_Ehdr *header);
 extern void copy_task_mm(struct task_struct *dst, struct task_struct *src);

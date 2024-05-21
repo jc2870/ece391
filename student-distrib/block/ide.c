@@ -195,20 +195,24 @@ int ide_write(u32 block, char *buf, u32 cnt)
     return cnt;
 }
 
+extern int tmp_test;
 void ide_test_read()
 {
-    char *data_buf = get_free_page();
-    panic_on(!data_buf, "alloc page failed\n");
+    struct page *page = get_free_page();
+    char *data_buf = (char*)page_vdr(page);
+    tmp_test = 1;
+    panic_on(!page, "alloc page failed\n");
     SET_CUR_DISK(0);
     memset(data_buf, 0, PAGE_SIZE);
     ide_read(15, data_buf, 1);
     panic_on(memcmp(data_buf+0x104, "ext2fs", 6), "read error\n");
-    put_page((usl_t)data_buf);
+    put_page(page);
 }
 
 void ide_test_write()
 {
-    char *data_buf = get_free_page();
+    struct page *page = get_free_page();
+    char *data_buf = (char*)page_vdr(page);
 
     panic_on(!data_buf, "alloc page failed\n");
     panic_on(!havedisk1, "disk1 doesn't exist\n");
@@ -221,7 +225,7 @@ void ide_test_write()
     ide_read(1, data_buf, 1);
     panic_on(memcmp(data_buf, data_buf+512, 512), "write or read error\n");
 
-    put_page((usl_t)data_buf);
+    put_page(page);
 }
 
 static void ide_intr_handler()

@@ -34,7 +34,7 @@ void test_paging()
 
 void test_alloc_pages()
 {
-    void *p0, *p1, *p2;
+    struct page *p0, *p1, *p2;
     uint32_t stats1[MAX_ORDER] = {0};
     uint32_t stats2[MAX_ORDER] = {0};
 
@@ -60,19 +60,19 @@ void test_alloc_pages()
 #endif
     mm_show_statistics(stats2);
 
-    put_page((usl_t)p0);
+    put_page(p0);
 #ifdef DEBUG_MM
     clear();
 #endif
     mm_show_statistics(stats2);
 
-    put_pages((usl_t)p1, 1);
+    put_pages(p1, 1);
 #ifdef DEBUG_MM
     clear();
 #endif
     mm_show_statistics(stats2);
 
-    put_pages((usl_t)p2, 2);
+    put_pages(p2, 2);
 #ifdef DEBUG_MM
     clear();
 #endif

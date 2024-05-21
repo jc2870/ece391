@@ -1,4 +1,5 @@
 #include "tasks.h"
+#include "mm.h"
 #include "types.h"
 #include "wait.h"
 #include "atomic.h"
@@ -9,6 +10,7 @@
 #include "liballoc.h"
 #include "list.h"
 #include "timer.h"
+#include "x86_desc.h"
 
 extern void test_user0();
 extern void *test_user_stk0;
@@ -79,10 +81,10 @@ void init_task(struct task_struct *task, unsigned long eip, unsigned long user_s
 static struct task_struct* alloc_task()
 {
     struct task_struct *task = NULL;
-    void* p = get_free_pages(1);
-    panic_on((((unsigned long)p) % STACK_SIZE !=0), "struct task_struct must stack_size aligned\n");
+    struct page* p = get_free_pages(1);
+    panic_on((page_vdr(p) % STACK_SIZE !=0), "struct task_struct must stack_size aligned\n");
 
-    task = p;
+    task = (struct task_struct*)page_vdr(p);
     return task;
 }
 
@@ -97,17 +99,17 @@ static pid_t get_next_pid()
 
 void tasks_init()
 {
-    struct task_struct *init_task = (struct task_struct*)INIT_TASK;
+    struct task_struct *init_task = (struct task_struct*)pdr2vdr(INIT_TASK);
     seg_desc_t the_tss_desc = {0};
 
     atomic_set(&next_pid, 0);
 
     strcpy(init_task->comm, "init");
-    init_task->mm.pgdir = init_pgtbl_dir;
+    init_task->mm.pgdir = &kpgd;
     init_task->pid = get_next_pid();
     panic_on(init_task->pid != 0, "unexpected here\n");
 
-    init_task->cpu_state.esp0 = KSTACK_BOTTOM;
+    init_task->cpu_state.esp0 = pdr2vdr(KSTACK_BOTTOM);
     INIT_LIST(&init_task->task_list);
     /* Construct a TSS entry in the GDT */
 
@@ -125,7 +127,7 @@ void tasks_init()
     SET_TSS_PARAMS(the_tss_desc, &tss, tss_size);
     tss_desc_ptr = the_tss_desc;
 
-    tss.esp0 = (unsigned long)KSTACK_BOTTOM;  // stack top
+    tss.esp0 = pdr2vdr(KSTACK_BOTTOM);  // stack top
     tss.ss0 = KERNEL_DS;
     tss.cs = KERNEL_CS;
     ltr(KERNEL_TSS);
@@ -215,10 +217,11 @@ void new_kthread(unsigned long addr)
 /* @note: only support initrd yet */
 int do_sys_execve(struct task_struct *cur, const char* path, char *const argv[], char *const envp[])
 {
-    char *buf = get_free_pages(1);
+    struct page *page = get_free_pages(1);
+    char *buf = (char*)page_vdr(page);
     Elf32_Ehdr *header;
     char *_path = kstrdup(path);
-    panic_on(!buf, "alloc failed\n");
+    panic_on(!page, "alloc failed\n");
 
     str_trim(_path);
     read_data_by_name(_path, 0, buf, PAGE_SIZE*2);

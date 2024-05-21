@@ -58,6 +58,7 @@ do {                                \
 } while(0)
 
 #define ARRAY_SIZE(p) (sizeof(p)/sizeof(p[0]))
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 void* memset(void* s, int32_t c, uint32_t n);
 void* memset_word(void* s, int32_t c, uint32_t n);

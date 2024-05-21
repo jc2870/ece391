@@ -5,6 +5,7 @@
 #include "mm.h"
 #include "vfs.h"
 #include "elf.h"
+#include "x86_desc.h"
 
 #define INITRD_FS_MOD "/filesys_img"
 
@@ -16,7 +17,10 @@ module_t *get_fs_mod(multiboot_info_t *mbi)
 {
     if (CHECK_FLAG(mbi->flags, 3)) {
         int mod_count = 0;
-        module_t* mod = (module_t*)mbi->mods_addr;
+        module_t* mod = (module_t*)pdr2vdr(mbi->mods_addr);
+        mod->string = pdr2vdr(mod->string);
+        mod->mod_start = pdr2vdr(mod->mod_start);
+        mod->mod_end = pdr2vdr(mod->mod_end);
         while (mod_count < mbi->mods_count) {
             if (!memcmp((void*)mod->string, INITRD_FS_MOD, sizeof(INITRD_FS_MOD))) {
                 return mod;

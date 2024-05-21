@@ -67,7 +67,6 @@ static __unused void self_test()
     asm volatile ("int $0x3");
 }
 
-extern pgd_t kpgd;
 void main(unsigned long magic, unsigned long addr)
 {
     if (detect_apic() == false)
@@ -88,25 +87,24 @@ void main(unsigned long magic, unsigned long addr)
     multiboot_info(magic, addr);
 
     /* Init the PIC */
+    tasks_init();
     timer_init();
     keyboard_init();
     mm_init(addr);
     // launch_tests();
 
-    tasks_init();
-    enable_paging();
     enable_irq(PIC_TIMER_INTR);
-#define TEST_TASKS
+// #define TEST_TASKS
 #ifdef TEST_TASKS
     init_test_tasks();
     test_tasks();
 #endif
     initrd_init((void*)addr);
     display_initrd_file_name();
-// #define TEST_FS
+#define TEST_FS
 #ifdef TEST_FS
     {
-        char *data = get_free_pages(1);
+        char *data = (char*)page_vdr(get_free_pages(1));
         const char *shell = "shell";
 
         clear();
