@@ -104,6 +104,7 @@ static void free_page(struct page *page);
 static bool addr_is_free(usl_t addr, uint8_t order);
 static void setup_kvm(pgd_t *pgd);
 static usl_t boot_bitmap_alloc();
+static void mm_assert();
 
 struct free_mem_stcutre {
     struct list free_pages_head[MAX_ORDER];
@@ -580,6 +581,13 @@ static pfn_t buddy_pfn(pfn_t pfn, char order)
     return pfn ^ (1 << order);
 }
 
+static struct page *buddy_page(struct page *page, char order)
+{
+    pfn_t bd_pfn = buddy_pfn(page_pfn(page), order);
+
+    return pfn_page(bd_pfn);
+}
+
 static inline usl_t pfn_to_pdr(pfn_t pfn)
 {
     return (pfn * PAGE_SIZE);
@@ -621,116 +629,82 @@ static inline struct page* vdr_page(usl_t vaddr)
     return pdr_page(vdr2pdr(vaddr));
 }
 
-/* @return: return the next address to be inited */
-static unsigned long __init_free_pages_list(usl_t addr)
+static void mm_assert()
 {
-    // usl_t paddr = 0;
-    // struct list* head = get_free_pages_head(0);
-    // char order = 0;
-    // while (paddr < phy_mem_end) {
-    //     struct page *page = pdr_page(paddr);
-
-    //     if (!addr_is_free(paddr, 0)) {
-    //         paddr += PAGE_SIZE;
-    //         continue;
-    //     }
-
-    //     list_add_tail(head, &page->bd_list);
-    //     phy_mm_stcutre.nr_free_pages[0]++;
-    //     phy_mm_stcutre.all_free_pages++;
-    //     paddr += PAGE_SIZE;
-    // }
-
-    // paddr = 0;
-    // while (paddr < phy_mem_end) {
-    //     order = 0;
-    //     pfn_t pfn    = pdr_to_pfn(paddr);
-    //     pfn_t bd_pfn = buddy_pfn(pfn, order);
-    //     usl_t bd_addr = pfn_to_pdr(bd_pfn);
-    //     struct page* page = NULL;
-    //     struct page* bd_page = NULL;
-
-    //     while (1) {
-    //         if (!addr_is_free(paddr, order) || !addr_is_free(bd_addr, order)) {
-    //             break;
-    //         }
-
-    //         page = pdr_page(paddr);
-    //         bd_page = pdr_page(bd_addr);
-    //         list_del(&page->bd_list);
-    //         list_del(&bd_page->bd_list);
-    //         INIT_LIST(&page->bd_list);
-    //         INIT_LIST(&bd_page->bd_list);
-    //         phy_mm_stcutre.nr_free_pages[order] -= 2;
-
-    //         order++;
-    //         head = get_free_pages_head(order);
-    //         paddr = min(paddr, bd_addr);
-    //         pfn = pdr_to_pfn(paddr);
-    //         bd_pfn = buddy_pfn(pfn, order);
-    //         bd_addr = pfn_to_pdr(bd_pfn);
-    //         page = pdr_page(paddr);
-    //         list_add_tail(head, &page->bd_list);
-    //     }
-    //     paddr += ((1 << order) * PAGE_SIZE);
-    // }
     char order = 0;
-    struct list* head = NULL;
-    pfn_t pfn = pdr_to_pfn(addr);
-    struct page *page = pfn_page(pfn);
-    pfn_t bd_pfn = buddy_pfn(pfn, order);
-    unsigned long bd_addr = pfn_to_pdr(bd_pfn);
-    struct page *bd_page = pfn_page(bd_pfn);
-    unsigned adr = addr;
+    struct list *head;
 
-    if (!addr_is_free(addr, order)) {
-        return addr + PAGE_SIZE;
+    for(; order < MAX_ORDER; ++order) {
+        head = get_free_pages_head(order);
+        struct page *page;
+        usl_t padr;
+
+        list_for_each_entry(page, head, bd_list) {
+            padr = page_pdr(page);
+            if (!addr_is_free(padr, order)) {
+                panic("mm bug, order %d, page 0x%x, addr 0x%x\n",
+                    order, page, padr);
+            }
+        }
+    }
+}
+
+/* @return: return the next address to be inited */
+static unsigned long __init_free_pages_list()
+{
+    usl_t paddr = 0;
+    struct list* head = get_free_pages_head(0);
+    char order = 0;
+
+    while (paddr < phy_mem_end) {
+        struct page *page = pdr_page(paddr);
+
+        if (!addr_is_free(paddr, 0)) {
+            paddr += PAGE_SIZE;
+            continue;
+        }
+
+        list_add_tail(head, &page->bd_list);
+        phy_mm_stcutre.nr_free_pages[0]++;
+        phy_mm_stcutre.all_free_pages++;
+        paddr += PAGE_SIZE;
     }
 
-    while (order < MAX_ORDER) {
-        if (!addr_is_free(bd_addr , order) || !addr_is_free(addr, order) ||
-             order == _MAX_ORDER) {
-            break;
+    for (order = 0; order < _MAX_ORDER; ++order) {
+        head = get_free_pages_head(order);
+        struct page *page;
+        struct page* bd_page;
+        struct list tmpl;
+        INIT_LIST(&tmpl);
+
+        list_for_each_entry_safe_from_head(page, head, bd_list) {
+            bd_page = buddy_page(page, order);
+            if (page_is_free(page, order) && page_is_free(bd_page, order)) {
+                list_del(&page->bd_list);
+                list_del(&bd_page->bd_list);
+                INIT_LIST(&bd_page->bd_list);
+                page = min(page, bd_page);
+                list_add_tail(get_free_pages_head(order+1), &page->bd_list);
+            } else {
+                list_del(&page->bd_list);
+                list_add_tail(&tmpl, &page->bd_list);
+            }
         }
-        /* @fixme: may be bug here. */
-        if (addr != bd_addr && phy_mm_stcutre.nr_free_pages[order] != 0) {
-            list_del(&bd_page->bd_list);
-            INIT_LIST(&bd_page->bd_list);
-            panic_on(phy_mm_stcutre.nr_free_pages[order] == 0, "-1 overflow");
-            phy_mm_stcutre.nr_free_pages[order]--;
-        }
-        addr = addr < bd_addr ? addr : bd_addr;
-        order++;
-        pfn = pdr_to_pfn(addr);
-        bd_pfn = buddy_pfn(pfn, order);
-        bd_addr = pfn_to_pdr(bd_pfn);
-        page = pfn_page(pfn);
-        bd_page = pfn_page(bd_pfn);
+
+        list_splice(&tmpl, head);
     }
-
-    phy_mm_stcutre.nr_free_pages[order]++;
-    phy_mm_stcutre.all_free_pages += (1 << order);
-    head = get_free_pages_head(order);
-    INIT_LIST(&page->bd_list);
-    list_add_tail(head , &page->bd_list);
-    adr += (PAGE_SIZE * (1 << order));
-
-    return adr;
 }
 
 int init_free_pages_list()
 {
     int i = 0;
-    unsigned long cur_addr = 0;
 
     memset(&phy_mm_stcutre, 0, sizeof(phy_mm_stcutre));
     for (i = 0; i < MAX_ORDER; ++i) {
         INIT_LIST(get_free_pages_head(i));
     }
 
-    while (cur_addr < phy_mem_end) {
-    cur_addr = __init_free_pages_list(cur_addr);
-    }
+    __init_free_pages_list();
 
     return 0;
 }
@@ -831,14 +805,18 @@ void mm_init(unsigned long addr)
  */
 static void split_free_pages_list(char cur_order, char ori_order)
 {
-    unsigned long addr = 0;
-    unsigned long cur_addr = 0;
+    struct list *head = NULL;
+    struct page *page = NULL;
+    struct page *bd_page;
 
-    addr = (unsigned long)(get_free_pages_head(cur_order)->next);
+    head = get_free_pages_head(cur_order);
+    page = list_first_entry(head, struct page, bd_list);
 
     while (cur_order-- > ori_order) {
-        cur_addr = addr + ((1 << cur_order) * PAGE_SIZE);
-        list_add_tail(get_free_pages_head(cur_order), (struct list*)cur_addr);
+        bd_page = buddy_page(page, cur_order);
+        list_del(&bd_page->bd_list);
+        list_add_tail(get_free_pages_head(cur_order), &bd_page->bd_list);
+        phy_mm_stcutre.nr_free_pages[cur_order+1]--;
         phy_mm_stcutre.nr_free_pages[cur_order]++;
     }
 }
@@ -860,11 +838,11 @@ struct page* alloc_pages(char order)
             continue;
         }
         /* Found a free pages list */
-        head = head->next;
-        page = list_entry(head, struct page, bd_list);
-        if (!addr_is_free(page_pdr(page), 0)) {
-            panic("mm bug, try to alloc a busy page addr: 0x%x page:0x%x pfn:0x%x\n",
-                page_pdr(page), page, page_pfn(page));
+        page = list_first_entry(head, struct page, bd_list);
+        if (!addr_is_free(page_pdr(page), order)) {
+            printf("mm bug, try to alloc a busy page\n");
+            panic("addr: 0x%x page:0x%x pfn:0x%x order:%d\n",
+                page_pdr(page), page, page_pfn(page), order);
         }
         page_bitmap_set_busy(page_pdr(page), order);
         if (cur_order != order)
@@ -874,12 +852,15 @@ struct page* alloc_pages(char order)
         phy_mm_stcutre.all_free_pages -= (1 << order);
 
         panic_on((page_pdr(page) & PAGE_MASK), "invalid page address 0x%x\n", head);
-        sti_and_restore(flags);
-        return page;
+        goto out;
     }
-    sti_and_restore(flags);
 
-    return NULL;
+    page = NULL;
+out:
+    sti_and_restore(flags);
+    mm_assert();
+
+    return page;
 }
 
 static void try_to_merge(pfn_t pfn, char order)
@@ -934,6 +915,8 @@ void free_pages(struct page* page, char order)
     try_to_merge(pfn, order);
 
     sti_and_restore(flags);
+
+    mm_assert();
 }
 
 struct page* alloc_page()

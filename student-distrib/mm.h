@@ -19,6 +19,8 @@
 #define MAX_PDE_ENTRY (PAGE_SIZE/sizeof(void*))
 #define MAX_PTE_ENTRY MAX_PDE_ENTRY
 
+#define page_is_free(page, order) addr_is_free(page_pdr(page), order)
+
 struct task_struct;
 struct page;
 
