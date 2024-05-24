@@ -42,6 +42,7 @@ typedef long ssize_t;
 typedef unsigned long size_t;
 
 typedef unsigned long usl_t;
+typedef long pid_t;
 
 #define __user __attribute__((noderef, address_space(1)))
 

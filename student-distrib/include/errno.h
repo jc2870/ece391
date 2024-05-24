@@ -37,5 +37,6 @@
 #define	ERANGE		34	/* Math result not representable */
 
 #define EOPNOTSUPP  95
+#define ENOTSUPP	524	/* Operation is not supported */
 
 #endif

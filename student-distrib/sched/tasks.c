@@ -37,6 +37,7 @@ void __init_task(struct task_struct *task, unsigned long eip, unsigned long user
 
     INIT_LIST(&task->task_list);
     INIT_LIST(&task->children);
+    INIT_LIST(&task->sibling);
     task->cpu_state.cs = USER_CS;
     task->cpu_state.ds = USER_DS;
     task->cpu_state.es = USER_DS;
@@ -50,7 +51,6 @@ void __init_task(struct task_struct *task, unsigned long eip, unsigned long user
     task->parent = NULL;
     task->mm.pgdir = alloc_pgdir();
     task->fs = kmalloc(sizeof(struct fs_struct));
-    task->exited = false;
     task->pid = get_next_pid();
     init_wait_queue_head(&task->wait_child_exit);
     alloc_files_struct(task);
@@ -248,54 +248,58 @@ int sys_execve(const char* path, char *const argv[], char *const envp[])
 
 int sys_fork(__unused u32 ebx, __unused u32 ecx, __unused u32 edx, struct intr_regs regs)
 {
-    struct task_struct *task = NULL;
+    struct task_struct *child = NULL;
     struct task_struct *cur = current();
 
-    task = alloc_task();
-    if (!task) {
+    child = alloc_task();
+    if (!child) {
         panic("alloc task failed\n");
     }
 
-    init_task(task, (unsigned long)regs.eip, regs.esp);
-    strcpy(task->comm, cur->comm);
-    copy_task_mm(task, cur);
-    task->parent = cur;
+    init_task(child, (unsigned long)regs.eip, regs.esp);
+    strcpy(child->comm, cur->comm);
+    copy_task_mm(child, cur);
 #define ECE391_SYSCALL
 #ifdef ECE391_SYSCALL
-    do_sys_execve(task, (void*)ebx, (void*)ecx, (void*)edx);
+    do_sys_execve(child, (void*)ebx, (void*)ecx, (void*)edx);
 #endif
-    init_user_task_finish(task);
+    child->parent = cur;
+    list_add_tail(&cur->children, &child->sibling);
+    init_user_task_finish(child);
     schedule();
 
 #define ECE391_SYSCALL
 #ifdef ECE391_SYSCALL
-    /* @fixme: should nerver busy loop. */
-    while (1) {
-        if (task->exited) {
-            break;
-        }
-    }
+    do_waitpid(child->pid, NULL, 0);
 #endif
 
     return 0;
 }
 
+static void exit_notify(struct task_struct *task)
+{
+    struct task_struct *parent = task->parent;
+    wait_queue_entry_t *entry;
+
+    list_for_each_entry(entry, &parent->wait_child_exit.head, entry) {
+        entry->func(entry, task);
+    }
+}
+
 /* @fixme: should free all pages. */
 int sys_exit(int err)
 {
-    cli();
     struct task_struct *cur = current();
-    cur->exited = true;
+
+    cli();
+    cur->state = TASK_STOPPED;
     sti();
+
+    exit_notify(cur);
+
     clear_opened_files(cur);
     destroy_files_struct(cur);
     schedule();
 
     return 0;
 }
-
-int sys_waitpid()
-{
-    return -1;
-}
-

@@ -50,12 +50,18 @@ void schedule()
     }
 
     cli();
+
     next = list_entry(runnable_tasks.next, struct task_struct, task_list);
+    if (cur == next) {
+        return;
+    }
 
     list_del(&cur->task_list);
-    if (!cur->exited) {
+    if (cur->state == TASK_RUNNING) {
         list_add_tail(&runnable_tasks, &cur->task_list);
         cur->state = TASK_RUNNABLE;
+    } else if (cur->state == TASK_INTERRUPTIBLE || cur->state == TASK_UNINTERRUPTIBLE) {
+        list_add_tail(&waiting_tasks, &cur->task_list);
     }
     list_del(&next->task_list);
     list_add_tail(&running_tasks, &next->task_list);

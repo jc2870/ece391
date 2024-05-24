@@ -68,8 +68,6 @@ typedef enum task_state {
     TASK_STOPPED = 8,
 } task_state;
 
-typedef unsigned long pid_t;
-
 struct task_struct {
     union {
         char stack[STACK_SIZE];
@@ -79,11 +77,11 @@ struct task_struct {
             struct task_struct *parent;
             struct list task_list;
             struct list children;
+            struct list sibling;
             char comm[16];
             struct mm mm;
             struct files_struct *files;
             struct fs_struct *fs;
-            bool exited;
             wait_queue_head_t wait_child_exit;
 
             struct regs cpu_state;
