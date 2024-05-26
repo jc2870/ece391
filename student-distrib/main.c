@@ -19,6 +19,7 @@
 #include "init_rd.h"
 #include "block/hd.h"
 #include "serial.h"
+#include <pci.h>
 
 #define RUN_TESTS
 
@@ -91,7 +92,7 @@ void main(unsigned long magic, unsigned long addr)
     timer_init();
     keyboard_init();
     mm_init(addr);
-    // launch_tests();
+    pci_init();
 
     enable_irq(PIC_TIMER_INTR);
 // #define TEST_TASKS

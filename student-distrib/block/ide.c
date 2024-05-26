@@ -219,10 +219,10 @@ void ide_test_write()
 
     SET_CUR_DISK(1);
     memset(data_buf, 'b', 1024);
-    ide_write(1, data_buf, 1);
+    ide_write(0, data_buf, 1);
 
     memset(data_buf, 0, 512);
-    ide_read(1, data_buf, 1);
+    ide_read(0, data_buf, 1);
     panic_on(memcmp(data_buf, data_buf+512, 512), "write or read error\n");
 
     put_page(page);
@@ -247,5 +247,3 @@ struct hd_driver hd_ide_driver = {
     .name = "ide",
     .ops = &hd_ide_ops,
 };
-
-

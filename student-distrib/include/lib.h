@@ -127,8 +127,8 @@ outsl(int port, const void *addr, int cnt)
 
 /* Reads four bytes from four consecutive ports, starting at "port",
  * concatenates them little-endian style, and returns them */
-static inline uint32_t inl(uint16_t port) {
-    uint32_t val;
+static inline u32 inl(u32 port) {
+    u32 val;
     asm volatile ("inl (%w1), %0"
             : "=a"(val)
             : "d"(port)
@@ -165,7 +165,7 @@ do {                                    \
 /* Writes four bytes to four consecutive ports */
 #define outl(data, port)                \
 do {                                    \
-    asm volatile ("outl %l1, (%w0)"     \
+    asm volatile ("outl %1, (%w0)"     \
             :                           \
             : "d"(port), "a"(data)      \
             : "memory", "cc"            \

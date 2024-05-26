@@ -2,10 +2,8 @@ target remote 127.0.0.1:1234
 layout split
 set pagination off
 
-b entry
 b main
 b __panic
-b sys_fork
 b memmap_init
 b _start
 # b intr0xD_handler
