@@ -10,8 +10,9 @@
 #define INITRD_FS_MOD "/filesys_img"
 
 static struct initrd_fs_mod *fs = NULL;
-struct file_operations initrd_file_operations;
-struct file_operations initrd_dir_operations;
+static struct file_operations initrd_file_operations;
+static struct file_operations initrd_dir_operations;
+static struct inode_operations initrd_dir_inode_ops;
 
 module_t *get_fs_mod(multiboot_info_t *mbi)
 {
@@ -38,12 +39,21 @@ void initrd_init(multiboot_info_t *mbi)
     fs = kmalloc(sizeof(struct initrd_fs_mod));
     module_t *module = get_fs_mod(mbi);
     int i = 0;
+    struct inode *root = kmalloc(sizeof(struct inode));
+    struct task_struct *cur = current();
+
     panic_on(!fs, "alloc fs failed\n");
     panic_on(!module, "cannot find fs module %s\n", INITRD_FS_MOD);
+    panic_on(!root, "alloc root failed\n");
 
     fs->boot_block = (void*)module->mod_start;
     fs->inodes = (void*)(fs->boot_block + 1);
     fs->blocks = (void*)(fs->boot_block->stat.nr_inodes*4096 + (char*)fs->inodes);
+    root->i_no = ROOTINO;
+    root->i_ops = &initrd_dir_inode_ops;
+    root->i_mode = S_IFDIR;
+    cur->fs->root = root;
+    cur->fs->pwd = root;
 
     panic_on(module->mod_end != (u32)(fs->blocks + fs->boot_block->stat.nr_blocks),
             "unexpected here");
@@ -81,7 +91,7 @@ s32 read_dentry_by_name(const char* fname, initrd_dentry_t* dentry)
         }
     }
 
-    return -1;
+    return -ENOENT;
 }
 
 /* @param: index in
@@ -152,9 +162,11 @@ s32 read_data(u32 ino, u32 offset, char *buf, u32 len)
 s32 read_data_by_name(const char *fname, u32 offset, char *buf, u32 len)
 {
     struct initrd_dentry d;
+    int ret;
 
     panic_on(offset, "current offset only support 0\n");
-    read_dentry_by_name(fname, &d);
+    if ((ret = read_dentry_by_name(fname, &d)))
+	return ret;
     return __read_data_by_ino(d.inode, offset, buf, len);
 }
 
@@ -180,9 +192,19 @@ ssize_t initrd_write(struct file *file, const char __user *buf, size_t size, u32
     return -EOPNOTSUPP;
 }
 
-struct file_operations initrd_file_operations = {
+static ssize_t initrd_lookup(const char *path)
+{
+	struct initrd_dentry d;
+	return read_dentry_by_name(path, &d);
+}
+
+static struct file_operations initrd_file_operations = {
     .open    = initrd_open,
     .release = initrd_release,
     .read    = initrd_read,
     .write   = initrd_write,
+};
+
+static struct inode_operations initrd_dir_inode_ops = {
+	.lookup = initrd_lookup,
 };

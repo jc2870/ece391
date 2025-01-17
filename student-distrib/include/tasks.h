@@ -97,9 +97,10 @@ static inline struct task_struct* current()
 
 extern void test_tasks();
 extern void init_test_tasks();
-extern void tasks_init();
+extern void task0_init();
 extern void init_user_task(Elf32_Ehdr *header, const char *name);
 
+extern struct task_struct *task0;
 extern struct list running_tasks;
 extern struct list runnable_tasks;  // waiting for time slice
 extern struct list waiting_tasks;   // waiing for io or lock or something

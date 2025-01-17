@@ -18,6 +18,7 @@
 #include "tasks.h"
 #include "init_rd.h"
 #include "block/hd.h"
+#include "vfs.h"
 #include "serial.h"
 #include <pci.h>
 
@@ -88,11 +89,13 @@ void main(unsigned long magic, unsigned long addr)
     multiboot_info(magic, addr);
 
     /* Init the PIC */
-    tasks_init();
+    task0_init();
     timer_init();
     keyboard_init();
     mm_init(addr);
     pci_init();
+    task0->fs = kmalloc(sizeof(struct fs_struct));
+    alloc_files_struct(task0);
 
     enable_irq(PIC_TIMER_INTR);
 // #define TEST_TASKS
@@ -109,11 +112,11 @@ void main(unsigned long magic, unsigned long addr)
         const char *shell = "shell";
 
         clear();
-        read_data_by_name("frame0.txt", 0, data, ALL_FILE);
+        panic_on(read_data_by_name("frame0.txt", 0, data, ALL_FILE) < 0, "should not happed");
         printf("%s\n", data);
-        read_data_by_name("frame1.txt", 0, data, ALL_FILE);
+        panic_on(read_data_by_name("frame1.txt", 0, data, ALL_FILE) < 0, "should not happed");
         printf("%s\n", data);
-        read_data_by_name(shell, 0, data, ALL_FILE);
+        panic_on(read_data_by_name(shell, 0, data, ALL_FILE) < 0, "should not happen");
         init_user_task((void*)data, shell);
     }
     clear();

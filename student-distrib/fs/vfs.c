@@ -73,6 +73,14 @@ void set_builtin_fd(struct task_struct *task)
     panic_on(files->fd_bitmap[0] != 0x7, "set builtin fd error\n");
 }
 
+void copy_files_struct(struct task_struct *child, struct task_struct *parent)
+{
+	child->files->max_fd = parent->files->max_fd;
+	child->files->nr_openfd = parent->files->nr_openfd;
+	*child->files->fd_array = *parent->files->fd_array;
+	child->files->fd_bitmap = parent->files->fd_bitmap;
+}
+
 void alloc_files_struct(struct task_struct *task)
 {
     struct files_struct *files = kmalloc(sizeof(struct files_struct));
@@ -229,7 +237,8 @@ static int check_fd(int fd)
 {
     struct file *f = NULL;
     int bitmap = 0;
-    struct files_struct *cur_files = current()->files;
+    struct task_struct *cur = current();
+    struct files_struct *cur_files = cur->files;
 
     mutex_lock(&cur_files->mutex);
     f = cur_files->fd_array[fd];

@@ -157,7 +157,7 @@ void intr0x31_handler(unsigned long errno)
     u16 x, y;
     static bool with_shift = false;
     static bool with_ctrl = false;
-    static bool with_alt = false;
+    static __unused bool with_alt = false;
 
     get_cursor(&x, &y);
     if (scancode_map[v] == SCAN_LSHFT) {

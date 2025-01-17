@@ -15,6 +15,7 @@
 #define __patchable_func_entry  __attribute__((patchable_function_entry(5)))
 #define __section(name)         __attribute__((section(name)))
 #define __weak(name)            __attribute__((weak))
+#define __must_check            __attribute__((__warn_unused_result__))
 
 int32_t printf(int8_t *format, ...);
 uint32_t mprintf(char *fmt, ...);

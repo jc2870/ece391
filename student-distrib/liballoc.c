@@ -499,7 +499,7 @@ void kfree(void *ptr)
     unsigned long flags;
 
 	if (ptr == NULL) {
-		l_warningCount += 1;
+		// l_warningCount += 1;
 		#if defined DEBUG || defined INFO
 		printf( "liballoc: WARNING: kfree( NULL ) called from %x\n",
 							__builtin_return_address(0) );

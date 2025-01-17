@@ -13,8 +13,6 @@ static char serial_buf[128] = {0};
 static u8 serial_idx = 0;
 
 void serial_init() {
-    char *p;
-
     // Turn off the FIFO
     outb(0, COMS1+2);
 

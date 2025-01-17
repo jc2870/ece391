@@ -2,6 +2,7 @@
 #define _INIT_RD_H_
 #include "types.h"
 #include "multiboot.h"
+#include "lib.h"
 
 #define DENTRY_LEN 32
 #define BLOCK_SIZE 4096
@@ -51,9 +52,9 @@ struct initrd_fs_mod {
 extern void initrd_init(multiboot_info_t *mbi);
 extern void display_initrd_file_name(void);
 
-extern s32 read_dentry_by_name(const char* fname, initrd_dentry_t* dentry);
-extern s32 read_dentry_by_ino(u32 index, initrd_dentry_t* dentry);
-extern s32 read_data_by_ino(u32 inode, u32 offset, char *buf, u32 len);
-extern s32 read_data_by_name(const char *fname, u32 offset, char *buf, u32 len);
+extern s32 __must_check read_dentry_by_name(const char* fname, initrd_dentry_t* dentry);
+extern s32 __must_check read_dentry_by_ino(u32 index, initrd_dentry_t* dentry);
+extern s32 __must_check read_data_by_ino(u32 inode, u32 offset, char *buf, u32 len);
+extern s32 __must_check read_data_by_name(const char *fname, u32 offset, char *buf, u32 len);
 
 #endif

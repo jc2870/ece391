@@ -24,6 +24,7 @@ struct task_struct *test_task1;
 struct task_struct *test_task2;
 
 static struct atomic next_pid;
+struct task_struct *task0;
 
 struct list running_tasks;
 struct list runnable_tasks;  // waiting for time slice
@@ -33,8 +34,6 @@ static pid_t get_next_pid();
 
 void __init_task(struct task_struct *task, unsigned long eip, unsigned long user_stack)
 {
-    memset(task, 0, sizeof(struct task_struct));
-
     INIT_LIST(&task->task_list);
     INIT_LIST(&task->children);
     INIT_LIST(&task->sibling);
@@ -49,12 +48,8 @@ void __init_task(struct task_struct *task, unsigned long eip, unsigned long user
     task->cpu_state.esp0 = (usl_t)((char*)task + STACK_SIZE);
     task->state = TASK_RUNNABLE;
     task->parent = NULL;
-    task->mm.pgdir = alloc_pgdir();
-    task->fs = kmalloc(sizeof(struct fs_struct));
     task->pid = get_next_pid();
     init_wait_queue_head(&task->wait_child_exit);
-    alloc_files_struct(task);
-    panic_on(!task->mm.pgdir || !task->fs || !task->files, "alloc page failed");
     /* map to kernel space */
     upgtbl_init(task);
 }
@@ -62,8 +57,6 @@ void __init_task(struct task_struct *task, unsigned long eip, unsigned long user
 void init_task(struct task_struct *task, unsigned long eip, unsigned long user_stack)
 {
     unsigned long *kernel_stk = (unsigned long*)((char*)task + STACK_SIZE);
-
-    memset(task, 0, sizeof(*task));
 
     /*
      * 这里可能不太容易看的懂，结合doc/sched.md一起看
@@ -85,6 +78,13 @@ static struct task_struct* alloc_task()
     panic_on((page_vdr(p) % STACK_SIZE !=0), "struct task_struct must stack_size aligned\n");
 
     task = (struct task_struct*)page_vdr(p);
+    memset(task, 0, sizeof(*task));
+
+    task->mm.pgdir = alloc_pgdir();
+    task->fs = kmalloc(sizeof(struct fs_struct));
+    alloc_files_struct(task);
+    panic_on(!task->mm.pgdir || !task->fs || !task->files, "alloc page failed");
+
     return task;
 }
 
@@ -97,9 +97,10 @@ static pid_t get_next_pid()
     return ret;
 }
 
-void tasks_init()
+void task0_init()
 {
     struct task_struct *init_task = (struct task_struct*)pdr2vdr(INIT_TASK);
+    task0 = init_task;
     seg_desc_t the_tss_desc = {0};
 
     atomic_set(&next_pid, 0);
@@ -173,7 +174,38 @@ void init_user_task(Elf32_Ehdr *header, const char *name)
 
     strcpy(task->comm, name);
     init_task_mm(task, header);
+    task->fs->pwd = task0->fs->pwd;
+    task->fs->root = task0->fs->root;
     init_user_task_finish(task);
+}
+
+static int copy_task_fs(struct task_struct *child, struct task_struct *parent)
+{
+	struct inode *new_root, *new_pwd;
+
+	new_root = kmalloc(sizeof(struct inode));
+	new_pwd = kmalloc(sizeof(struct inode));
+	child->fs = kmalloc(sizeof(struct fs_struct));
+	alloc_files_struct(child);
+
+	if (!child->fs || !child->files || !new_root || !new_pwd)
+		goto out_nomem;
+
+	copy_files_struct(child, parent);
+	*new_root = *parent->fs->root;
+	*new_pwd = *parent->fs->pwd;
+	child->fs->pwd = new_pwd;
+	child->fs->root = new_root;
+
+	return 0;
+
+out_nomem:
+	kfree(child->fs);
+	destroy_files_struct(child);
+	kfree(new_pwd);
+	kfree(new_root);
+
+	return -ENOMEM;
 }
 
 void test_tasks()
@@ -215,16 +247,23 @@ void new_kthread(unsigned long addr)
 }
 
 /* @note: only support initrd yet */
-int do_sys_execve(struct task_struct *cur, const char* path, char *const argv[], char *const envp[])
+__must_check int do_sys_execve(struct task_struct *cur, const char* path, char *const argv[], char *const envp[])
 {
     struct page *page = get_free_pages(1);
     char *buf = (char*)page_vdr(page);
     Elf32_Ehdr *header;
     char *_path = kstrdup(path);
+    struct inode *root = cur->fs->root;
+    int ret;
     panic_on(!page, "alloc failed\n");
 
+    ret = root->i_ops->lookup(path);
+    if (ret)
+	return ret;
+
     str_trim(_path);
-    read_data_by_name(_path, 0, buf, PAGE_SIZE*2);
+    if (read_data_by_name(_path, 0, buf, PAGE_SIZE*2) == -ENOENT)
+	return -ENOENT;
     header = (Elf32_Ehdr*)buf;
     panic_on(elf_invalid(header), "should never happen for initrd, cannot find file:%s\n", path);
     /* @fixme: destroy all page mapped by cur */
@@ -242,14 +281,18 @@ int do_sys_execve(struct task_struct *cur, const char* path, char *const argv[],
 /* @note: only support initrd yet */
 int sys_execve(const char* path, char *const argv[], char *const envp[])
 {
-    do_sys_execve(current(), path, argv, envp);
-    return 0;
+	int ret;
+
+	if ((ret = do_sys_execve(current(), path, argv, envp)))
+		return ret;
+	return 0;
 }
 
 int sys_fork(__unused u32 ebx, __unused u32 ecx, __unused u32 edx, struct intr_regs regs)
 {
     struct task_struct *child = NULL;
     struct task_struct *cur = current();
+    int ret;
 
     child = alloc_task();
     if (!child) {
@@ -258,20 +301,14 @@ int sys_fork(__unused u32 ebx, __unused u32 ecx, __unused u32 edx, struct intr_r
 
     init_task(child, (unsigned long)regs.eip, regs.esp);
     strcpy(child->comm, cur->comm);
+    if ((ret = copy_task_fs(child, cur)))
+	return ret;
     copy_task_mm(child, cur);
-#define ECE391_SYSCALL
-#ifdef ECE391_SYSCALL
-    do_sys_execve(child, (void*)ebx, (void*)ecx, (void*)edx);
-#endif
     child->parent = cur;
+
     list_add_tail(&cur->children, &child->sibling);
     init_user_task_finish(child);
     schedule();
-
-#define ECE391_SYSCALL
-#ifdef ECE391_SYSCALL
-    do_waitpid(child->pid, NULL, 0);
-#endif
 
     return 0;
 }

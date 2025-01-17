@@ -405,6 +405,8 @@ static pte_t *get_pte(uint32_t vaddr, pgd_t *pgd)
     panic_on(!pde, "should never happed\n");
 
     pde &= ~(PAGE_MASK);
+    pde = pdr2vdr(pde);
+
     pte = ((uint32_t*)pde)[pde_offset];
     panic_on(!pte, "should never happed\n");
 
@@ -423,7 +425,7 @@ static pte_t __do_cow_page(u32 vaddr, struct page *page, pgd_t *pgd)
     pte |= (1 << US_BIT);
     *get_pte(vaddr, pgd) = pte;
 
-    flush_tlb();
+//     flush_tlb();
 
     return pte;
 }
@@ -941,8 +943,10 @@ void page_fault_handler(unsigned long addr, unsigned long errno)
     bool page_absent = get_bit(errno, 0) == 0;
     bool op_write = get_bit(errno, 1) == 1;
     bool from_user = get_bit(errno, 2) == 1;
-    pgd_t *pgd = current()->mm.pgdir;
-    panic_on(!addr, "null ptr referenced occured");
+    struct task_struct *cur = current();
+    pgd_t *pgd = cur->mm.pgdir;
+    pgd_t *src_pgd = cur->parent->mm.pgdir;
+    panic_on(!addr, "null ptr referenced occured comm is %s", cur->comm);
     if (!from_user) {
         __add_page_mapping(addr, vdr2pdr(addr), pgd, PERM_KN|PERM_P|PERM_RW);
     } else {
@@ -955,7 +959,7 @@ void page_fault_handler(unsigned long addr, unsigned long errno)
             pte_t src_pte = 0;
 
             dst_pte = __do_cow_page(addr, page, pgd);
-            src_pte = *get_pte(addr, pgd);
+            src_pte = *get_pte(addr, src_pgd);
             src_pte &= ~PAGE_MASK;
             dst_pte &= ~PAGE_MASK;
             src_page = pfn_page(pdr_to_pfn(src_pte));

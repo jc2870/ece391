@@ -16,7 +16,7 @@ static void _set_gate(idt_desc_t *gate, int type, int dpl, void *addr)
     SET_IDT_ENTRY(*gate, addr);
 }
 
-static void set_trap_gate(unsigned int n, void *addr)
+static __unused void set_trap_gate(unsigned int n, void *addr)
 {
     _set_gate(&idt[n], TRAP_GATE, KERNEL_RPL, addr);
 }
@@ -154,19 +154,19 @@ static void intr0x15_handler(unsigned long errno)
 }
 
 /* APIC_MASTER_FIRST_INTR +3 */
-static void intr0x33_handler(unsigned long errno)
+static __unused void intr0x33_handler(unsigned long errno)
 {
     KERN_INFO("serial2 interrupt occured\n");
 }
 
 /* APIC_SLAVE_FIRST_INTR */
-static void intr0x38_handler(unsigned long errno)
+static __unused void intr0x38_handler(unsigned long errno)
 {
     KERN_INFO("real time counter occured\n");
 }
 
 /* APIC_SLAVE_FIRST_INTR +5 */
-static void intr0x3D_handler(unsigned long errno)
+static __unused void intr0x3D_handler(unsigned long errno)
 {
     KERN_INFO("math cooperation occured\n");
 }
