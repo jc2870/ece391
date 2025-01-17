@@ -305,12 +305,13 @@ int sys_fork(__unused u32 ebx, __unused u32 ecx, __unused u32 edx, struct intr_r
 	return ret;
     copy_task_mm(child, cur);
     child->parent = cur;
-
+    child->fork_ret = 0;
+    cur->fork_ret = child->pid;
     list_add_tail(&cur->children, &child->sibling);
     init_user_task_finish(child);
     schedule();
 
-    return 0;
+    return current()->fork_ret;
 }
 
 static void exit_notify(struct task_struct *task)

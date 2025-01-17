@@ -74,6 +74,7 @@ struct task_struct {
         struct {
             volatile task_state state;
             pid_t pid;
+            int fork_ret;
             struct task_struct *parent;
             struct list task_list;
             struct list children;
