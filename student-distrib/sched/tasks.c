@@ -71,6 +71,25 @@ void init_task(struct task_struct *task, unsigned long eip, unsigned long user_s
     kernel_stk[1] = user_stack;
 }
 
+static struct task_struct* clone_task(struct task_struct *parent)
+{
+    struct task_struct *task = NULL;
+    struct page* p = get_free_pages(1);
+    panic_on((page_vdr(p) % STACK_SIZE !=0), "struct task_struct must stack_size aligned\n");
+
+    task = (struct task_struct*)page_vdr(p);
+    memset(task, 0, sizeof(*task));
+
+    memcpy(task, parent, STACK_SIZE);
+
+    task->mm.pgdir = alloc_pgdir();
+    task->fs = kmalloc(sizeof(struct fs_struct));
+    alloc_files_struct(task);
+    panic_on(!task->mm.pgdir || !task->fs || !task->files, "alloc page failed");
+
+    return task;
+}
+
 static struct task_struct* alloc_task()
 {
     struct task_struct *task = NULL;
@@ -294,15 +313,14 @@ int sys_fork(__unused u32 ebx, __unused u32 ecx, __unused u32 edx, struct intr_r
     struct task_struct *cur = current();
     int ret;
 
-    child = alloc_task();
+    child = clone_task(cur);
     if (!child) {
         panic("alloc task failed\n");
     }
 
     init_task(child, (unsigned long)regs.eip, regs.esp);
-    strcpy(child->comm, cur->comm);
     if ((ret = copy_task_fs(child, cur)))
-	return ret;
+        return ret;
     copy_task_mm(child, cur);
     child->parent = cur;
     child->fork_ret = 0;
