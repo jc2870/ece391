@@ -52,14 +52,6 @@ DO_CALL(__ece391_close,6 /* SYS_CLOSE */);
 
 /* Call the main() function, then halt with its return value. */
 
-asm volatile ("                         \n\
-.GLOBAL _start                          \n\
-_start:                                 \n\
-	MOVL	%ESP,start_esp          \n\
-        CALL	main                    \n\
-	PUSHL	%EAX                    \n\
-	CALL	ece391_halt             \n\
-");
 
 /* end of fake container function */
 }
