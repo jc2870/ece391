@@ -10,12 +10,12 @@ ALL: cat grep hello ls pingpong counter shell sigtest testprint syserr
 %.o: %.S
 	$(CC) $(CFLAGS) -c -Wall -o $@ $<
 
-%.exe: ece391%.o ece391syscall.o ece391support.o
+%: ece391%.o ece391syscall.o ece391support.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-%: %.exe
-	../elfconvert $<
-	mv $<.converted to_fsdir/$@
+# %: %.exe
+# 	../elfconvert $<
+# 	mv $<.converted to_fsdir/$@
 
 clean::
 	rm -f *~ *.o
@@ -23,4 +23,5 @@ clean::
 clear: clean
 	rm -f *.converted
 	rm -f *.exe
+	rm shell
 	rm -f to_fsdir/*

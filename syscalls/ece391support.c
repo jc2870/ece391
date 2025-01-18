@@ -45,6 +45,46 @@ int32_t ece391_strncmp(const uint8_t* s1, const uint8_t* s2, uint32_t n)
     return ((int32_t)*s1) - ((int32_t)*s2);
 }
 
+int ece391_atoi(int32_t value, char *buf, int len)
+{
+	int i = 0;
+	int h = 10;
+	int j = 0;
+	int r = 0;
+	int negative = (value < 0);
+	if (negative) {
+		i = 1;
+		j = 1;
+		value = -value;
+	}
+
+	while (value) {
+		int r = 0;
+
+		r = value % h;
+		buf[i] = '0' + (r/(h/10));
+
+		value -= r;
+		h *= 10;
+		i++;
+	}
+	r = i;
+	i--;
+
+    while (i > j) {
+		int tmp = buf[i];
+		buf[i] = buf[j];
+		buf[j] = tmp;
+		i--;
+		j++;
+	}
+	if (negative)
+		buf[0] = '-';
+	buf[r] = '\0';
+
+	return r;
+}
+
 /* Convert a number to its ASCII representation, with base "radix" */
 uint8_t* ece391_itoa(uint32_t value, uint8_t* buf, int32_t radix)
 {

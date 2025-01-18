@@ -12,7 +12,10 @@
  * could not be found.
  */ 
 extern int32_t ece391_halt (uint8_t status);
-extern int32_t ece391_execute (const uint8_t* command);
+extern int32_t ece391_fork();
+extern int32_t ece391_exit(int32_t status);
+extern int32_t ece391_waitpid(uint32_t pid);
+extern int32_t ece391_execve (const uint8_t* command, char *argv, char *env);
 extern int32_t ece391_read (int32_t fd, void* buf, int32_t nbytes);
 extern int32_t ece391_write (int32_t fd, const void* buf, int32_t nbytes);
 extern int32_t ece391_open (const uint8_t* filename);

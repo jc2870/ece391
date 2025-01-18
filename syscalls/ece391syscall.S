@@ -17,16 +17,18 @@ name:   PUSHL	%EBX          ;\
 	RET
 
 /* the system call library wrappers */
-DO_CALL(ece391_halt,SYS_HALT)
-DO_CALL(ece391_execute,SYS_EXECUTE)
-DO_CALL(ece391_read,SYS_READ)
-DO_CALL(ece391_write,SYS_WRITE)
-DO_CALL(ece391_open,SYS_OPEN)
-DO_CALL(ece391_close,SYS_CLOSE)
-DO_CALL(ece391_getargs,SYS_GETARGS)
-DO_CALL(ece391_vidmap,SYS_VIDMAP)
-DO_CALL(ece391_set_handler,SYS_SET_HANDLER)
-DO_CALL(ece391_sigreturn,SYS_SIGRETURN)
+DO_CALL(ece391_setup,SYS_setup)
+DO_CALL(ece391_exit,SYS_exit)
+DO_CALL(ece391_fork,SYS_fork)
+DO_CALL(ece391_read,SYS_read)
+DO_CALL(ece391_write,SYS_write)
+DO_CALL(ece391_open,SYS_open)
+DO_CALL(ece391_close,SYS_close)
+DO_CALL(ece391_waitpid,SYS_waitpid)
+DO_CALL(ece391_create,SYS_creat)
+DO_CALL(ece391_link,SYS_link)
+DO_CALL(ece391_unlink,SYS_unlink)
+DO_CALL(ece391_execve,SYS_execve)
 
 
 /* Call the main() function, then halt with its return value. */
@@ -37,5 +39,5 @@ _start:
     PUSHL   $0
     PUSHL   $0
 	PUSHL	%EAX
-	CALL	ece391_halt
+	CALL	ece391_exit
 
